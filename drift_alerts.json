@@ -1,0 +1,40 @@
+[
+  {
+    "timestamp": "2025-10-18T17:50:22.886252",
+    "alert_type": "DRIFT_DETECTED",
+    "details": {
+      "timestamp": "2025-10-18T17:50:22.886252",
+      "psi_drift": {
+        "drift_detected": true,
+        "psi_scores": {
+          "sensor_measurement_4": 16.377646606474094,
+          "sensor_measurement_7": 12.944916630488391,
+          "sensor_measurement_11": 13.143574165536092,
+          "sensor_measurement_12": 15.147807373847662,
+          "sensor_measurement_15": 15.393085005017742
+        },
+        "max_psi": 16.377646606474094,
+        "drift_features": [
+          "sensor_measurement_4",
+          "sensor_measurement_7",
+          "sensor_measurement_11",
+          "sensor_measurement_12",
+          "sensor_measurement_15"
+        ]
+      },
+      "adwin_drift": {
+        "drift_detected": false
+      },
+      "performance_drift": {
+        "drift_detected": false
+      },
+      "overall_drift": true,
+      "retrain_recommended": true,
+      "statistical_drift": {
+        "drift_detected": false,
+        "drift_features": []
+      }
+    },
+    "retrain_recommended": true
+  }
+]
