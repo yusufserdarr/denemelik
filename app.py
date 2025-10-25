@@ -605,51 +605,54 @@ elif data_source == "Dosya Yükle":
 
 else:  # Manuel Giriş
     st.subheader("✏️ Manuel Veri Girişi")
-    st.markdown("**Ana sensör değerlerini girin (Feature Selection ile seçilen en önemli 6 ölçüm):**")
+    st.markdown("**En önemli 6 sensörü girin (Feature Selection'a göre sıralanmış):**")
     
-    # En önemli 6 sensörü anlamlı isimlerle göster
+    # Feature importance'a göre en önemli 6 sensör
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        sicaklik = st.number_input("🌡️ Sıcaklık (°C)", 
-                                   min_value=0.0, max_value=100.0, value=25.0, step=0.5,
-                                   help="Makine sıcaklık ölçümü (sensor_measurement_4)")
-        
-        titresim = st.number_input("📳 Titreşim", 
-                                   min_value=0.0, max_value=20.0, value=8.4, step=0.1,
-                                   help="Makine titreşim seviyesi (sensor_measurement_15)")
-    
-    with col2:
-        tork = st.number_input("⚙️ Tork (Nm)", 
-                              min_value=0.0, max_value=200.0, value=55.0, step=1.0,
-                              help="Makine tork değeri (sensor_measurement_9)")
-        
         basinc = st.number_input("📊 Basınç (bar)", 
                                 min_value=30.0, max_value=70.0, value=47.5, step=0.5,
-                                help="Sistem basınç ölçümü (sensor_measurement_11)")
+                                help="En önemli sensör! (sensor_measurement_11)")
+        
+        sicaklik = st.number_input("🌡️ Sıcaklık (°C)", 
+                                   min_value=0.0, max_value=100.0, value=25.0, step=0.5,
+                                   help="2. en önemli sensör (sensor_measurement_4)")
     
-    with col3:
+    with col2:
         hiz = st.number_input("⚡ Hız (rpm)", 
                              min_value=400.0, max_value=600.0, value=523.5, step=0.5,
-                             help="Motor dönüş hızı (sensor_measurement_12)")
+                             help="3. en önemli sensör (sensor_measurement_12)")
         
-        nem = st.number_input("💧 Nem (%)", 
-                             min_value=20.0, max_value=60.0, value=38.9, step=0.1,
-                             help="Ortam nem oranı (sensor_measurement_20)")
+        akim = st.number_input("⚡ Akım (A)", 
+                              min_value=400.0, max_value=700.0, value=553.0, step=1.0,
+                              help="4. en önemli sensör (sensor_measurement_7)")
     
-    # Diğer 4 sensör için varsayılan değerler (kullanıcı görmez)
-    sensor_7 = 553.0
-    sensor_21 = 23.3
-    sensor_2 = 642.0 + sicaklik/5
-    sensor_14 = 8130.0 + tork*5
+    with col3:
+        titresim = st.number_input("📳 Titreşim", 
+                                   min_value=0.0, max_value=20.0, value=8.4, step=0.1,
+                                   help="5. en önemli sensör (sensor_measurement_15)")
+        
+        guc = st.number_input("⚙️ Güç (W)", 
+                             min_value=10.0, max_value=40.0, value=23.3, step=0.1,
+                             help="6. en önemli sensör (sensor_measurement_21)")
+    
+    # Diğer 4 sensör için varsayılan/türetilmiş değerler (kullanıcı görmez)
+    sensor_20 = 38.9 + sicaklik/5  # Nem - sıcaklıktan türetilir
+    sensor_9 = 9050.0  # Tork
+    sensor_2 = 642.0 + sicaklik/5  # Sıcaklıktan türetilir
+    sensor_14 = 8130.0  # Varsayılan
     
     # Ana değerlerden sensör mapping'i oluştur
     sensor_11 = basinc
     sensor_4 = 1400.0 + sicaklik
     sensor_12 = hiz
+    sensor_7 = akim
     sensor_15 = titresim
-    sensor_20 = nem
-    sensor_9 = 9050.0 + tork
+    sensor_21 = guc
+    
+    # Geriye dönük uyumluluk için tork değişkeni
+    tork = 55.0
 
 # Tahmin yapma
 if sicaklik is not None and titresim is not None and tork is not None:
@@ -824,21 +827,63 @@ if sicaklik is not None and titresim is not None and tork is not None:
                     }
                     sample_df = pd.DataFrame(sample_data)
                     
-                    html_file = explain_instance(model, scaler, sample_df, features, "reports/lime_explanation.html")
+                    html_file, lime_exp = explain_instance(model, scaler, sample_df, features, "reports/lime_explanation.html")
                     
                 st.success("✅ LIME açıklaması oluşturuldu!")
                 
-                # HTML dosyasını Streamlit'te göster
+                # Özellik önem skorlarını tablo olarak göster
+                st.markdown("### 🔍 LIME Açıklaması - Özellik Etkileri")
+                
+                # LIME explanation'dan özellik skorlarını al
+                lime_list = lime_exp.as_list()
+                
+                # Sensör isim mapping'i
+                sensor_names = {
+                    'sensor_measurement_11': '📊 Basınç',
+                    'sensor_measurement_4': '🌡️ Sıcaklık',
+                    'sensor_measurement_12': '⚡ Hız',
+                    'sensor_measurement_7': '⚡ Akım',
+                    'sensor_measurement_15': '📳 Titreşim',
+                    'sensor_measurement_21': '⚙️ Güç',
+                    'sensor_measurement_20': '💧 Nem',
+                    'sensor_measurement_9': '🔧 Tork',
+                    'sensor_measurement_2': '🌡️ Sensör 2',
+                    'sensor_measurement_14': '⚙️ Sensör 14'
+                }
+                
+                # DataFrame oluştur
+                lime_data = []
+                for feat_range, score in lime_list:
+                    # Özellik ismini çıkar (örn: "sensor_measurement_11 <= 50.00")
+                    for sensor_id, sensor_name in sensor_names.items():
+                        if sensor_id in feat_range:
+                            lime_data.append({
+                                'Sensör': sensor_name,
+                                'Değer Aralığı': feat_range.replace(sensor_id, '').strip(),
+                                'Etki': score,
+                                'Yön': '🟢 Pozitif' if score > 0 else '🔴 Negatif'
+                            })
+                            break
+                
+                lime_df = pd.DataFrame(lime_data)
+                
+                # Mutlak değere göre sırala (en etkili en üstte)
+                lime_df['Mutlak Etki'] = lime_df['Etki'].abs()
+                lime_df = lime_df.sort_values('Mutlak Etki', ascending=False).drop('Mutlak Etki', axis=1)
+                
+                # Tabloyu göster
+                st.dataframe(lime_df, use_container_width=True)
+                
+                # Model tahmini
+                st.metric("🎯 Model Tahmini (RUL)", f"{float(lime_exp.predicted_value):.2f} döngü")
+                
+                # HTML dosyasını indir
                 if os.path.exists(html_file):
                     with open(html_file, 'r', encoding='utf-8') as f:
                         html_content = f.read()
                     
-                    st.markdown("### 🔍 LIME Açıklaması")
-                    st.components.v1.html(html_content, height=600, scrolling=True)
-                    
-                    # İndirme linki
                     st.download_button(
-                        label="📥 HTML Dosyasını İndir",
+                        label="📥 Detaylı HTML Raporunu İndir",
                         data=html_content,
                         file_name="lime_explanation.html",
                         mime="text/html"
@@ -846,6 +891,8 @@ if sicaklik is not None and titresim is not None and tork is not None:
                 
             except Exception as e:
                 st.error(f"❌ LIME hatası: {e}")
+                import traceback
+                st.code(traceback.format_exc())
     
     with col2:
         if st.button("📊 SHAP Lokal Grafiği", width='stretch'):

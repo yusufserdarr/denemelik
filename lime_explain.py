@@ -25,7 +25,7 @@ def explain_instance(model, scaler, x_orig_df_row, feature_names, out_html="repo
         out_html: Çıktı HTML dosyası yolu
     
     Returns:
-        str: Oluşturulan HTML dosyasının yolu
+        tuple: (HTML dosya yolu, LIME explanation objesi)
     """
     try:
         # Çıktı klasörünü oluştur
@@ -66,9 +66,73 @@ def explain_instance(model, scaler, x_orig_df_row, feature_names, out_html="repo
         # HTML'e kaydet
         explanation.save_to_file(out_html)
         
-        print(f"✅ LIME açıklaması oluşturuldu: {out_html}")
+        # HTML dosyasını oku ve CSS ekle (dark mode uyumlu)
+        with open(out_html, 'r', encoding='utf-8') as f:
+            html_content = f.read()
         
-        return out_html
+        # Özel CSS ekle (okunaklı renkler)
+        custom_css = """
+        <style>
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                font-family: Arial, sans-serif;
+                padding: 20px;
+            }
+            h1, h2, h3, h4, h5, h6 {
+                color: #1f77b4 !important;
+                font-weight: bold;
+            }
+            table {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                border-collapse: collapse;
+                width: 100%;
+                margin: 20px 0;
+            }
+            td, th {
+                border: 1px solid #ddd !important;
+                padding: 12px !important;
+                color: #000000 !important;
+                background-color: #ffffff !important;
+            }
+            th {
+                background-color: #f0f0f0 !important;
+                font-weight: bold;
+            }
+            .positive {
+                color: #2e7d32 !important;
+                font-weight: bold;
+            }
+            .negative {
+                color: #d32f2f !important;
+                font-weight: bold;
+            }
+            div, span, p {
+                color: #000000 !important;
+            }
+            /* Bar renklerini koru ama yazıları düzelt */
+            svg text {
+                fill: #000000 !important;
+            }
+        </style>
+        """
+        
+        # <head> taginden hemen önce CSS ekle
+        if '<head>' in html_content:
+            html_content = html_content.replace('<head>', f'<head>{custom_css}')
+        else:
+            # head yoksa body'den önce ekle
+            html_content = custom_css + html_content
+        
+        # Güncellenmiş HTML'i kaydet
+        with open(out_html, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        print(f"✅ LIME açıklaması oluşturuldu (okunabilir renklerle): {out_html}")
+        
+        # HTML dosya yolu ve explanation objesini döndür
+        return out_html, explanation
         
     except (FileNotFoundError, ValueError, RuntimeError) as e:
         raise RuntimeError(f"LIME açıklaması oluşturulamadı: {str(e)}") from e
@@ -118,7 +182,7 @@ def test_lime_explanation():
         test_df = pd.DataFrame(test_data)
         
         # LIME açıklaması oluştur
-        html_file = explain_instance(model, scaler, test_df, features)
+        html_file, _ = explain_instance(model, scaler, test_df, features)
         
         # Tarayıcıda aç
         open_html_in_browser(html_file)
