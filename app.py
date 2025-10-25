@@ -605,33 +605,96 @@ elif data_source == "Dosya Yükle":
 
 else:  # Manuel Giriş
     st.subheader("✏️ Manuel Veri Girişi")
-    st.markdown("**Ana ölçümleri girin (diğer sensörler otomatik hesaplanır):**")
+    st.markdown("**Ana sensör değerlerini girin (Feature Selection ile seçilen en önemli 6 ölçüm):**")
     
-    # Sadece 3 ana ölçüm
+    # En önemli 6 sensörü anlamlı isimlerle göster
     col1, col2, col3 = st.columns(3)
+    
     with col1:
         sicaklik = st.number_input("🌡️ Sıcaklık (°C)", 
                                    min_value=0.0, max_value=100.0, value=25.0, step=0.5,
-                                   help="Makine sıcaklık ölçümü")
+                                   help="Makine sıcaklık ölçümü (sensor_measurement_4)")
+        
+        titresim = st.number_input("📳 Titreşim", 
+                                   min_value=0.0, max_value=20.0, value=8.4, step=0.1,
+                                   help="Makine titreşim seviyesi (sensor_measurement_15)")
     
     with col2:
-        titresim = st.number_input("📳 Titreşim", 
-                                   min_value=100.0, max_value=1000.0, value=500.0, step=10.0,
-                                   help="Makine titreşim seviyesi")
+        tork = st.number_input("⚙️ Tork (Nm)", 
+                              min_value=0.0, max_value=200.0, value=55.0, step=1.0,
+                              help="Makine tork değeri (sensor_measurement_9)")
+        
+        basinc = st.number_input("📊 Basınç (bar)", 
+                                min_value=30.0, max_value=70.0, value=47.5, step=0.5,
+                                help="Sistem basınç ölçümü (sensor_measurement_11)")
     
     with col3:
-        tork = st.number_input("⚙️ Tork", 
-                              min_value=10.0, max_value=100.0, value=55.0, step=1.0,
-                              help="Makine tork değeri")
+        hiz = st.number_input("⚡ Hız (rpm)", 
+                             min_value=400.0, max_value=600.0, value=523.5, step=0.5,
+                             help="Motor dönüş hızı (sensor_measurement_12)")
+        
+        nem = st.number_input("💧 Nem (%)", 
+                             min_value=20.0, max_value=60.0, value=38.9, step=0.1,
+                             help="Ortam nem oranı (sensor_measurement_20)")
+    
+    # Diğer 4 sensör için varsayılan değerler (kullanıcı görmez)
+    sensor_7 = 553.0
+    sensor_21 = 23.3
+    sensor_2 = 642.0 + sicaklik/5
+    sensor_14 = 8130.0 + tork*5
+    
+    # Ana değerlerden sensör mapping'i oluştur
+    sensor_11 = basinc
+    sensor_4 = 1400.0 + sicaklik
+    sensor_12 = hiz
+    sensor_15 = titresim
+    sensor_20 = nem
+    sensor_9 = 9050.0 + tork
 
 # Tahmin yapma
 if sicaklik is not None and titresim is not None and tork is not None:
     
-    # Manuel giriş için 3 ana ölçümü 10 sensöre dönüştür
+    # Manuel giriş için direkt sensör değerlerini kullan
     if data_source == "Manuel Giriş":
         try:
-            # 3 ana ölçümü (sıcaklık, titreşim, tork) 10 sensöre dönüştür
+            # Kullanıcının girdiği 10 sensör değerini kullan
             manual_data = {
+                'sensor_measurement_11': [sensor_11],
+                'sensor_measurement_4': [sensor_4],
+                'sensor_measurement_12': [sensor_12],
+                'sensor_measurement_7': [sensor_7],
+                'sensor_measurement_15': [sensor_15],
+                'sensor_measurement_21': [sensor_21],
+                'sensor_measurement_20': [sensor_20],
+                'sensor_measurement_9': [sensor_9],
+                'sensor_measurement_2': [sensor_2],
+                'sensor_measurement_14': [sensor_14]
+            }
+            manual_df = pd.DataFrame(manual_data)[features]
+            
+            # Veriyi ölçekle
+            X_scaled = scaler.transform(manual_df)
+            
+            # Model ile tahmin yap
+            rul_pred = model.predict(X_scaled)[0]
+            
+            # RUL değerinin geçerli olduğundan emin ol (negatif ve NaN'i önle)
+            if pd.notna(rul_pred) and rul_pred >= 0:
+                rul = float(rul_pred)
+            else:
+                # Fallback: güvenli bir değer
+                st.warning("⚠️ Model tahmini geçersiz, alternatif hesaplama kullanılıyor")
+                rul = max(10.0, 150.0 - abs(sensor_4 - 1425.0)/10 - abs(sensor_15 - 8.4)*2)
+            
+        except Exception as e:
+            st.error(f"❌ Model tahmini başarısız: {e}")
+            # Basit tahmin (fallback) - her zaman pozitif olacak şekilde
+            rul = max(10.0, 150.0 - abs(sensor_4 - 1425.0)/10 - abs(sensor_15 - 8.4)*2)
+    else:
+        # Diğer veri kaynakları için 3 ana ölçümden 10 sensör türet ve tahmin yap
+        try:
+            # 3 ana ölçümü (sıcaklık, titreşim, tork) 10 sensöre dönüştür
+            auto_data = {
                 'sensor_measurement_11': [47.5],
                 'sensor_measurement_4': [1400.0 + sicaklik],
                 'sensor_measurement_12': [521.0 + sicaklik/10],
@@ -643,21 +706,24 @@ if sicaklik is not None and titresim is not None and tork is not None:
                 'sensor_measurement_2': [642.0 + sicaklik/5],
                 'sensor_measurement_14': [8130.0 + tork*5]
             }
-            manual_df = pd.DataFrame(manual_data)[features]
+            auto_df = pd.DataFrame(auto_data)[features]
             
             # Veriyi ölçekle
-            X_scaled = scaler.transform(manual_df)
+            X_scaled = scaler.transform(auto_df)
             
             # Model ile tahmin yap
-            rul = model.predict(X_scaled)[0]
+            rul_pred = model.predict(X_scaled)[0]
             
+            # RUL değerinin geçerli olduğundan emin ol
+            if pd.notna(rul_pred) and rul_pred >= 0:
+                rul = float(rul_pred)
+            else:
+                # Fallback
+                rul = max(10.0, 200.0 - abs(sicaklik - 25.0) - abs(titresim - 500.0)/20 - abs(tork - 55.0)/2)
         except Exception as e:
-            st.error(f"❌ Model tahmini başarısız: {e}")
-            # Basit tahmin (fallback)
-            rul = max(10, 200 - (sicaklik/10) - (titresim*20) - (tork/2))
-    else:
-        # Diğer veri kaynakları için basit tahmin
-        rul = max(10, 200 - (sicaklik/10) - (titresim*20) - (tork/2))
+            st.warning(f"⚠️ Model tahmini başarısız: {e}")
+            # Basit tahmin (fallback) - her zaman pozitif
+            rul = max(10.0, 200.0 - abs(sicaklik - 25.0) - abs(titresim - 500.0)/20 - abs(tork - 55.0)/2)
     
     # Bakım kararı
     result = maintenance_decision(rul, {"critical": critical_th, "planned": planned_th})
@@ -743,18 +809,18 @@ if sicaklik is not None and titresim is not None and tork is not None:
         if st.button("🔍 LIME Açıklaması", width='stretch'):
             try:
                 with st.spinner("LIME açıklaması oluşturuluyor..."):
-                    # Örnek veri oluştur
+                    # Örnek veri oluştur - sensör mapping'ini kullan
                     sample_data = {
-                        'sensor_measurement_11': [47.5],
-                        'sensor_measurement_12': [521.0 + sicaklik/10],
-                        'sensor_measurement_4': [1400.0 + sicaklik],
-                        'sensor_measurement_7': [553.0],
-                        'sensor_measurement_15': [8.4 + titresim],
-                        'sensor_measurement_9': [9050.0 + tork*10],
-                        'sensor_measurement_21': [23.3],
-                        'sensor_measurement_20': [38.9],
-                        'sensor_measurement_2': [642.0 + sicaklik/5],
-                        'sensor_measurement_3': [1585.0 + sicaklik*2]
+                        'sensor_measurement_11': [sensor_11],
+                        'sensor_measurement_4': [sensor_4],
+                        'sensor_measurement_12': [sensor_12],
+                        'sensor_measurement_7': [sensor_7],
+                        'sensor_measurement_15': [sensor_15],
+                        'sensor_measurement_21': [sensor_21],
+                        'sensor_measurement_20': [sensor_20],
+                        'sensor_measurement_9': [sensor_9],
+                        'sensor_measurement_2': [sensor_2],
+                        'sensor_measurement_14': [sensor_14]
                     }
                     sample_df = pd.DataFrame(sample_data)
                     
@@ -785,18 +851,18 @@ if sicaklik is not None and titresim is not None and tork is not None:
         if st.button("📊 SHAP Lokal Grafiği", width='stretch'):
             try:
                 with st.spinner("SHAP lokal analizi yapılıyor..."):
-                    # Örnek veri oluştur
+                    # Örnek veri oluştur - sensör mapping'ini kullan
                     sample_data = {
-                        'sensor_measurement_11': [47.5],
-                        'sensor_measurement_12': [521.0 + sicaklik/10],
-                        'sensor_measurement_4': [1400.0 + sicaklik],
-                        'sensor_measurement_7': [553.0],
-                        'sensor_measurement_15': [8.4 + titresim],
-                        'sensor_measurement_9': [9050.0 + tork*10],
-                        'sensor_measurement_21': [23.3],
-                        'sensor_measurement_20': [38.9],
-                        'sensor_measurement_2': [642.0 + sicaklik/5],
-                        'sensor_measurement_3': [1585.0 + sicaklik*2]
+                        'sensor_measurement_11': [sensor_11],
+                        'sensor_measurement_4': [sensor_4],
+                        'sensor_measurement_12': [sensor_12],
+                        'sensor_measurement_7': [sensor_7],
+                        'sensor_measurement_15': [sensor_15],
+                        'sensor_measurement_21': [sensor_21],
+                        'sensor_measurement_20': [sensor_20],
+                        'sensor_measurement_9': [sensor_9],
+                        'sensor_measurement_2': [sensor_2],
+                        'sensor_measurement_14': [sensor_14]
                     }
                     sample_df = pd.DataFrame(sample_data)
                     
