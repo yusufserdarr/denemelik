@@ -217,8 +217,8 @@ menu_choice = st.sidebar.selectbox(
 )
 
 st.sidebar.markdown("### Bakım Eşikleri")
-critical_th = st.sidebar.slider("Kritik Eşik (RUL <)", 5, 50, 20, help="Bu değerin altında acil bakım gerekir")
-planned_th = st.sidebar.slider("Planlı Eşik (RUL <)", 30, 100, 50, help="Bu değerin altında planlı bakım önerilir")
+critical_th = st.sidebar.slider("Kritik Eşik (RUL <)", 5, 100, 40, help="Bu değerin altında acil bakım gerekir")
+planned_th = st.sidebar.slider("Planlı Eşik (RUL <)", 30, 150, 90, help="Bu değerin altında planlı bakım önerilir")
 
 # Veri yükleme / okuma
 sicaklik, titresim, tork = None, None, None
@@ -605,54 +605,107 @@ elif data_source == "Dosya Yükle":
 
 else:  # Manuel Giriş
     st.subheader("✏️ Manuel Veri Girişi")
-    st.markdown("**En önemli 6 sensörü girin (Feature Selection'a göre sıralanmış):**")
+    st.markdown("**Sensör değerlerini girin:**")
+    st.warning("⚠️ Dikkat: Aşırı/anormal değerler düşük RUL tahminine yol açar!")
     
     # Feature importance'a göre en önemli 6 sensör
     col1, col2, col3 = st.columns(3)
     
     with col1:
+        # Basınç: Normal aralık 46.85-48.53
         basinc = st.number_input("📊 Basınç (bar)", 
                                 min_value=30.0, max_value=70.0, value=47.5, step=0.5,
-                                help="En önemli sensör! (sensor_measurement_11)")
+                                help="Normal: 47-48 bar. Aşırı yüksek/düşük değerler RUL'u düşürür.")
         
+        # Sıcaklık göstergesi: Normal 20-30°C
         sicaklik = st.number_input("🌡️ Sıcaklık (°C)", 
-                                   min_value=0.0, max_value=100.0, value=25.0, step=0.5,
-                                   help="2. en önemli sensör (sensor_measurement_4)")
+                                   min_value=0.0, max_value=150.0, value=25.0, step=1.0,
+                                   help="Normal: 20-30°C. Yüksek sıcaklık (>50°C) RUL'u düşürür.")
     
     with col2:
+        # Hız: Normal 519-522
         hiz = st.number_input("⚡ Hız (rpm)", 
-                             min_value=400.0, max_value=600.0, value=523.5, step=0.5,
-                             help="3. en önemli sensör (sensor_measurement_12)")
+                             min_value=400.0, max_value=600.0, value=521.0, step=1.0,
+                             help="Normal: 519-522 rpm. Aşırı hız RUL'u düşürür.")
         
+        # Akım: Normal 550-555
         akim = st.number_input("⚡ Akım (A)", 
                               min_value=400.0, max_value=700.0, value=553.0, step=1.0,
-                              help="4. en önemli sensör (sensor_measurement_7)")
+                              help="Normal: 550-555 A. Aşırı akım RUL'u düşürür.")
     
     with col3:
-        titresim = st.number_input("📳 Titreşim", 
-                                   min_value=0.0, max_value=20.0, value=8.4, step=0.1,
-                                   help="5. en önemli sensör (sensor_measurement_15)")
+        # Titreşim göstergesi: Normal 0-2
+        titresim = st.number_input("📳 Titreşim Seviyesi", 
+                                   min_value=0.0, max_value=50.0, value=1.0, step=0.5,
+                                   help="Normal: 0-2. Yüksek titreşim (>10) RUL'u ciddi şekilde düşürür!")
         
+        # Güç: Normal 22.9-23.6
         guc = st.number_input("⚙️ Güç (W)", 
                              min_value=10.0, max_value=40.0, value=23.3, step=0.1,
-                             help="6. en önemli sensör (sensor_measurement_21)")
+                             help="Normal: 23-23.5 W")
     
-    # Diğer 4 sensör için varsayılan/türetilmiş değerler (kullanıcı görmez)
-    sensor_20 = 38.9 + sicaklik/5  # Nem - sıcaklıktan türetilir
-    sensor_9 = 9050.0  # Tork
-    sensor_2 = 642.0 + sicaklik/5  # Sıcaklıktan türetilir
-    sensor_14 = 8130.0  # Varsayılan
+    # Eğitim verisi aralıkları (referans):
+    # sensor_4 (sıcaklık): 1382.25-1441.49 (ort: 1408.93, std: 9.0)
+    # sensor_11 (basınç): 46.85-48.53 (ort: 47.54, std: 0.27)
+    # sensor_15 (titreşim): 8.32-8.58 (ort: 8.44, std: 0.04)
+    # sensor_12 (hız): 518.69-523.38 (ort: 521.41, std: 0.74)
+    # sensor_7 (akım): 549.85-556.06 (ort: 553.37, std: 0.89)
     
-    # Ana değerlerden sensör mapping'i oluştur
-    sensor_11 = basinc
-    sensor_4 = 1400.0 + sicaklik
-    sensor_12 = hiz
-    sensor_7 = akim
-    sensor_15 = titresim
-    sensor_21 = guc
+    # Kullanıcı girdilerini model anlayabileceği aralığa map et
+    # Sıcaklık: 20-30°C normal, >50°C kötü
+    # Map: 20°C→1390, 30°C→1410, 50°C→1430, 100°C→1441 (max)
+    if sicaklik <= 30:
+        sensor_4 = 1390.0 + (sicaklik - 20) * 2.0  # 20-30°C → 1390-1410
+    elif sicaklik <= 50:
+        sensor_4 = 1410.0 + (sicaklik - 30) * 1.0  # 30-50°C → 1410-1430
+    else:
+        sensor_4 = 1430.0 + min((sicaklik - 50) * 0.2, 11.49)  # >50°C → 1430-1441.49
+    
+    # Basınç: Direkt kullan, eğitim aralığına kliple
+    sensor_11 = max(46.85, min(48.53, basinc))
+    
+    # Titreşim: 0-2 normal, >10 çok kötü
+    # Map: 0→8.32, 2→8.44, 10→8.54, 50→8.58
+    if titresim <= 2:
+        sensor_15 = 8.32 + titresim * 0.06  # 0-2 → 8.32-8.44
+    elif titresim <= 10:
+        sensor_15 = 8.44 + (titresim - 2) * 0.0125  # 2-10 → 8.44-8.54
+    else:
+        sensor_15 = 8.54 + min((titresim - 10) * 0.001, 0.04)  # >10 → 8.54-8.58
+    
+    # Hız: Direkt kullan, eğitim aralığına kliple
+    sensor_12 = max(518.69, min(523.38, hiz))
+    
+    # Akım: Direkt kullan, eğitim aralığına kliple
+    sensor_7 = max(549.85, min(556.06, akim))
+    
+    # Güç: Direkt kullan
+    sensor_21 = max(22.89, min(23.62, guc))
+    
+    # Diğer sensörler için türetilmiş değerler
+    # Sıcaklıktan etkilenen sensörler
+    temp_factor = (sicaklik - 25.0) / 25.0  # 25°C'den sapma oranı
+    sensor_20 = 38.9 + temp_factor * 5.0  # Nem
+    sensor_2 = 642.0 + temp_factor * 10.0  # Basınç sensörü 2
+    
+    # Titreşimden etkilenen sensörler
+    vib_factor = (titresim - 1.0) / 10.0
+    sensor_9 = 9050.0 + vib_factor * 30.0  # Tork
+    sensor_14 = 8130.0 + vib_factor * 20.0  # Güç sensörü
     
     # Geriye dönük uyumluluk için tork değişkeni
     tork = 55.0
+    
+    # Debug bilgisi (opsiyonel)
+    with st.expander("🔍 Normalize Edilmiş Sensör Değerleri"):
+        st.write(f"**Model girdileri (eğitim verisi aralığına normalize edilmiş):**")
+        st.write(f"- sensor_4 (sıcaklık): {sensor_4:.2f} [Normal: 1390-1410]")
+        st.write(f"- sensor_11 (basınç): {sensor_11:.2f} [Normal: 47-48]")
+        st.write(f"- sensor_15 (titreşim): {sensor_15:.4f} [Normal: 8.32-8.44]")
+        st.write(f"- sensor_12 (hız): {sensor_12:.2f} [Normal: 519-522]")
+        st.write(f"- sensor_7 (akım): {sensor_7:.2f} [Normal: 550-554]")
+        
+        st.info("💡 İpucu: Yüksek sıcaklık (>50°C) ve yüksek titreşim (>10) RUL'u önemli ölçüde düşürür!")
 
 # Tahmin yapma
 if sicaklik is not None and titresim is not None and tork is not None:
