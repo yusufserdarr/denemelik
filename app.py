@@ -80,14 +80,66 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# LSTM için custom loss function tanımı
+def quantile_loss_factory(q):
+    """LSTM quantile regression için kayıp fonksiyonu"""
+    def loss(y_true, y_pred):
+        import tensorflow as tf  # type: ignore
+        y_true = tf.cast(y_true, tf.float32)
+        y_pred = tf.cast(y_pred, tf.float32)
+        e = y_true - y_pred
+        return tf.keras.backend.mean(tf.keras.backend.maximum(q * e, (q - 1) * e))
+    loss.__name__ = f'quantile_loss_{int(q*100)}'
+    return loss
+
 # Model ve scaler yükleme
 @st.cache_resource
-def load_models():
-    """Model ve scaler'ı yükle (cache ile) - Yeni modeller kullanılır"""
+def load_models(model_choice="XGBoost (Varsayılan)"):
+    """Model ve scaler'ı yükle (cache ile) - Model seçimine göre"""
     try:
-        # Yeni modelleri kullan (XGBoost q50 varsayılan)
-        model = joblib.load("xgboost_q50_model.pkl")
-        scaler = joblib.load("xgboost_scaler.pkl")
+        # Model seçimine göre dosya yolu belirle
+        if "LightGBM" in model_choice:
+            model_path = "lightgbm_q50_model.pkl"
+            scaler_path = "lightgbm_scaler.pkl"
+        elif "CatBoost" in model_choice:
+            model_path = "catboost_q50_model.pkl"
+            scaler_path = "catboost_scaler.pkl"
+        elif "LSTM" in model_choice:
+            model_path = "lstm_q50_model.h5"
+            scaler_path = "lstm_scaler.pkl"
+        elif "Stacking" in model_choice:
+            model_path = "model_stack.pkl"
+            scaler_path = "xgboost_scaler.pkl"
+        elif "Survival" in model_choice:
+            model_path = "cox_model.pkl"
+            scaler_path = "scaler_cox.pkl"
+        elif "Conformal" in model_choice:
+            model_path = "conformal_model.pkl"
+            scaler_path = "xgboost_scaler.pkl"
+        else:  # XGBoost varsayılan
+            model_path = "xgboost_q50_model.pkl"
+            scaler_path = "xgboost_scaler.pkl"
+        
+        # LSTM için özel yükleme (custom loss function ile)
+        if "LSTM" in model_choice and os.path.exists(model_path):
+            import tensorflow as tf  # type: ignore
+            from tensorflow.keras.models import load_model  # type: ignore
+            # Custom loss fonksiyonunu register et
+            custom_objects = {
+                'loss': quantile_loss_factory(0.5),  # q50 için
+                'quantile_loss_50': quantile_loss_factory(0.5)
+            }
+            model = load_model(model_path, custom_objects=custom_objects, compile=False)
+        elif "Conformal" in model_choice and os.path.exists(model_path):
+            # Conformal model dictionary olarak kaydedilmiş
+            model = joblib.load(model_path)  # Dictionary: {quantile: model}
+        else:
+            # Diğer modeller normal yükleme
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"Model dosyası bulunamadı: {model_path}")
+            model = joblib.load(model_path)
+        
+        scaler = joblib.load(scaler_path)
         
         # Özellikleri oku
         with open("selected_features.txt", "r") as f:
@@ -95,7 +147,7 @@ def load_models():
             
         return model, scaler, features
     except Exception as e:
-        st.error(f"❌ Model yükleme hatası: {e}")
+        st.error(f"❌ Model yükleme hatası ({model_choice}): {e}")
         st.info("💡 Önce modelleri eğitin: python3 model_train_fixed.py")
         st.stop()
 
@@ -107,44 +159,17 @@ col_title, col_model = st.columns([0.7, 0.3])
 with col_title:
     st.markdown("**Gerçek zamanlı sensör verilerinden makine kalan ömrü (RUL) tahmini**")
 with col_model:
-    st.selectbox(
+    selected_model = st.selectbox(
         "Model Seçimi",
         options=["XGBoost (Varsayılan)", "LightGBM", "CatBoost", "LSTM", "Stacking", "Survival (Cox)", "Conformal"],
         index=0,
         key="model_selection",
-        help="Tahmin için kullanılacak algoritma seçimi (LSTM entegrasyonu aşamalı olarak eklenecek)"
+        help="Tahmin için kullanılacak algoritma seçimi"
     )
 st.markdown("---")
 
-# Model yükle
-model, scaler, features = load_models()
-
-# LSTM yükleyici (opsiyonel)
-@st.cache_resource
-def load_lstm_model(path: str = "model_lstm.keras"):
-    try:
-        import tensorflow as tf  # type: ignore
-        from tensorflow.keras.models import load_model  # type: ignore
-        lstm_model = load_model(path)
-        return lstm_model
-    except Exception as e:
-        return None
-
-# Stacking meta model yükleyici
-@st.cache_resource
-def load_stack_model(path: str = "model_stack.pkl"):
-    try:
-        # Yol çözümü: app.py dizinine göre mutlak yol
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = path if os.path.isabs(path) else os.path.join(base_dir, path)
-        if os.path.exists(model_path):
-            return joblib.load(model_path)
-        # Fallback: çalışma dizini
-        if os.path.exists(path):
-            return joblib.load(path)
-        return None
-    except Exception:
-        return None
+# Model yükle - seçilen modele göre
+model, scaler, features = load_models(selected_model)
 
 # Stacking meta bilgileri yükleyici
 @st.cache_resource
@@ -158,34 +183,6 @@ def load_stack_meta(path: str = "model_stack_meta.json"):
         if os.path.exists(path):
             with open(path, "r") as f:
                 return json.load(f)
-        return None
-    except Exception:
-        return None
-
-# Survival model yükleyici
-@st.cache_resource
-def load_survival_model(path: str = "cox_model.pkl"):
-    try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = path if os.path.isabs(path) else os.path.join(base_dir, path)
-        if os.path.exists(model_path):
-            return joblib.load(model_path)
-        if os.path.exists(path):
-            return joblib.load(path)
-        return None
-    except Exception:
-        return None
-
-# Conformal model yükleyici
-@st.cache_resource
-def load_conformal_model(path: str = "conformal_model.pkl"):
-    try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = path if os.path.isabs(path) else os.path.join(base_dir, path)
-        if os.path.exists(model_path):
-            return joblib.load(model_path)
-        if os.path.exists(path):
-            return joblib.load(path)
         return None
     except Exception:
         return None
@@ -204,6 +201,10 @@ def load_drift_detector():
 
 # Klasörleri hazırla
 ensure_dirs()
+
+# Stream CSV yolunu global olarak tanımla (drift detector için de gerekli)
+base_dir = os.path.dirname(os.path.abspath(__file__))
+stream_csv_path = os.path.join(base_dir, "logs", "stream.csv")
 
 # Sol menü
 st.sidebar.header("🔧 Ayarlar")
@@ -225,10 +226,6 @@ sicaklik, titresim, tork = None, None, None
 
 if data_source == "Canlı Akış":
     st.subheader("📡 Canlı Veri Akışı")
-    
-    # Proje dizinine göre mutlak stream yolu oluştur
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    stream_csv_path = os.path.join(base_dir, "logs", "stream.csv")
 
     if os.path.exists(stream_csv_path):
         try:
@@ -253,321 +250,285 @@ if data_source == "Canlı Akış":
                 titresim = latest["titresim"].iloc[0]
                 tork = latest["tork"].iloc[0]
 
-                # LSTM seçiliyse hızlı tahmin denemesi (yalnızca canlı akışta)
-                if st.session_state.get("model_selection") == "LSTM (model_lstm.keras)":
-                    lstm_model = load_lstm_model()
-                    if lstm_model is None:
-                        st.info("LSTM modeli bulunamadı veya yüklenemedi. Klasik model kullanılacak.")
-                    else:
-                        try:
-                            timesteps = 20
-                            # Akıştan gelen 3 sensörden, eğitimde kullanılan 10 özelliği türet
-                            def to_features_row(row):
-                                s = float(row["sicaklik"])  # °C
-                                v = float(row["titresim"])  # titreşim
-                                t = float(row["tork"])       # tork
-                                data = {
-                                    'sensor_measurement_11': [47.5],
-                                    'sensor_measurement_4': [1400.0 + s],
-                                    'sensor_measurement_12': [521.0 + s/10],
-                                    'sensor_measurement_7': [553.0],
-                                    'sensor_measurement_15': [8.4 + v],
-                                    'sensor_measurement_21': [23.3],
-                                    'sensor_measurement_20': [38.9 + s/5],
-                                    'sensor_measurement_9': [9050.0 + t*10],
-                                    'sensor_measurement_2': [642.0 + s/5],
-                                    'sensor_measurement_14': [8130.0 + t*5]
-                                }
-                                return pd.DataFrame(data)[features]
+                # LSTM seçiliyse gerçek zaman serisi ile tahmin (canlı akışta)
+                if "LSTM" in selected_model:
+                    try:
+                        timesteps = 50  # Model bu uzunlukla eğitilmiş
+                        # Akıştan gelen 3 sensörden, eğitimde kullanılan 10 özelliği türet
+                        def to_features_row(row):
+                            s = float(row["sicaklik"])  # °C
+                            v = float(row["titresim"])  # titreşim
+                            t = float(row["tork"])       # tork
+                            data = {
+                                'sensor_measurement_11': [47.5],
+                                'sensor_measurement_4': [1400.0 + s],
+                                'sensor_measurement_12': [521.0 + s/10],
+                                'sensor_measurement_7': [553.0],
+                                'sensor_measurement_15': [8.4 + v],
+                                'sensor_measurement_21': [23.3],
+                                'sensor_measurement_20': [38.9 + s/5],
+                                'sensor_measurement_9': [9050.0 + t*10],
+                                'sensor_measurement_2': [642.0 + s/5],
+                                'sensor_measurement_14': [8130.0 + t*5]
+                            }
+                            return pd.DataFrame(data)[features]
 
-                            if len(df_stream) >= timesteps:
-                                last_rows = df_stream.tail(timesteps)
-                                df_feat = pd.concat([to_features_row(r) for _, r in last_rows.iterrows()], ignore_index=True)
-                                X_scaled_seq = scaler.transform(df_feat)  # mevcut scaler ile ölçekle
-                                seq = X_scaled_seq.reshape(1, timesteps, len(features)).astype("float32")
-                                lstm_pred = float(lstm_model.predict(seq, verbose=0).ravel()[0])
-                                st.metric("🤖 LSTM RUL", f"{lstm_pred:.2f}")
-                                # Not: Aşağıdaki genel tahmin bölümünde klasik akış devam eder
-                            else:
-                                st.info(f"LSTM için en az {timesteps} satırlık canlı veri gerekir.")
-                        except Exception as e:
-                            st.info(f"LSTM tahmini yapılamadı: {e}")
+                        if len(df_stream) >= timesteps:
+                            # Gerçek zaman serisi ile tahmin (daha doğru)
+                            last_rows = df_stream.tail(timesteps)
+                            df_feat = pd.concat([to_features_row(r) for _, r in last_rows.iterrows()], ignore_index=True)
+                            X_scaled_seq = scaler.transform(df_feat)
+                            seq = X_scaled_seq.reshape(1, timesteps, len(features)).astype("float32")
+                            lstm_pred = float(model.predict(seq, verbose=0).ravel()[0])
+                            st.metric("🤖 LSTM RUL (Gerçek Seri)", f"{lstm_pred:.2f}")
+                        else:
+                            st.info(f"⚠️ LSTM için en az {timesteps} satırlık canlı veri gerekir. Şu an: {len(df_stream)}")
+                    except Exception as e:
+                        st.warning(f"LSTM zaman serisi tahmini yapılamadı: {e}")
 
                 # Stacking seçiliyse: taban modellerin p50 tahminlerini üretip meta modele ver
-                if st.session_state.get("model_selection") == "Stacking (model_stack.pkl)":
-                    stack_model = load_stack_model()
-                    if stack_model is None:
-                        st.info("Stacking meta modeli yüklenemedi. Önce eğitim dosyasını üretin.")
-                    else:
+                if "Stacking" in selected_model:
+                    try:
+                        # Taban modeller: XGBoost, LightGBM, CatBoost
+                        base_preds = []
+
+                        # 10 özellik türet, ölçekle ve tek örnek için p50 modellerini çağır
+                        def to_features_df(s, v, t):
+                            s = s if pd.notna(s) and s != 0 else 25.0
+                            v = v if pd.notna(v) and v != 0 else 500.0
+                            t = t if pd.notna(t) and t != 0 else 3.0
+                            
+                            data = {
+                                'sensor_measurement_11': [47.5],
+                                'sensor_measurement_4': [1400.0 + s],
+                                'sensor_measurement_12': [521.0 + s/10],
+                                'sensor_measurement_7': [553.0],
+                                'sensor_measurement_15': [8.4 + v],
+                                'sensor_measurement_21': [23.3],
+                                'sensor_measurement_20': [38.9 + s/5],
+                                'sensor_measurement_9': [9050.0 + t*10],
+                                'sensor_measurement_2': [642.0 + s/5],
+                                'sensor_measurement_14': [8130.0 + t*5]
+                            }
+                            return pd.DataFrame(data)[features]
+
+                        feat_df = to_features_df(sicaklik, titresim, tork)
+                        X_scaled_single = scaler.transform(feat_df)
+
+                        # XGBoost
                         try:
-                            # Taban modeller: XGBoost, LightGBM, CatBoost, LSTM (p50)
-                            base_preds = []
+                            model_xgb = joblib.load("xgboost_q50_model.pkl")
+                            base_preds.append(float(model_xgb.predict(X_scaled_single)[0]))
+                        except Exception:
+                            pass
 
-                            # 10 özellik türet, ölçekle ve tek örnek için p50 modellerini çağır
-                            def to_features_df(s, v, t):
-                                # Boş değerleri varsayılan değerlerle doldur
-                                s = s if pd.notna(s) and s != 0 else 25.0  # Varsayılan sıcaklık
-                                v = v if pd.notna(v) and v != 0 else 500.0  # Varsayılan titreşim
-                                t = t if pd.notna(t) and t != 0 else 3.0   # Varsayılan tork
-                                
-                                data = {
-                                    'sensor_measurement_11': [47.5],
-                                    'sensor_measurement_4': [1400.0 + s],
-                                    'sensor_measurement_12': [521.0 + s/10],
-                                    'sensor_measurement_7': [553.0],
-                                    'sensor_measurement_15': [8.4 + v],
-                                    'sensor_measurement_21': [23.3],
-                                    'sensor_measurement_20': [38.9 + s/5],
-                                    'sensor_measurement_9': [9050.0 + t*10],
-                                    'sensor_measurement_2': [642.0 + s/5],
-                                    'sensor_measurement_14': [8130.0 + t*5]
-                                }
-                                return pd.DataFrame(data)[features]
+                        # LightGBM
+                        try:
+                            model_lgb = joblib.load("lightgbm_q50_model.pkl")
+                            base_preds.append(float(model_lgb.predict(X_scaled_single)[0]))
+                        except Exception:
+                            pass
 
-                            feat_df = to_features_df(sicaklik, titresim, tork)
-                            X_scaled_single = scaler.transform(feat_df)
+                        # CatBoost
+                        try:
+                            model_cb = joblib.load("catboost_q50_model.pkl")
+                            base_preds.append(float(model_cb.predict(X_scaled_single)[0]))
+                        except Exception:
+                            pass
 
-                            # XGBoost
-                            try:
-                                model_xgb = joblib.load("xgboost_q50_model.pkl")
-                                base_preds.append(float(model_xgb.predict(X_scaled_single)[0]))
-                            except Exception:
-                                pass
-
-                            # LightGBM
-                            try:
-                                model_lgb = joblib.load("lightgbm_q50_model.pkl")
-                                base_preds.append(float(model_lgb.predict(X_scaled_single)[0]))
-                            except Exception:
-                                pass
-
-                            # CatBoost
-                            try:
-                                model_cb = joblib.load("catboost_q50_model.pkl")
-                                base_preds.append(float(model_cb.predict(X_scaled_single)[0]))
-                            except Exception:
-                                pass
-
-                            # LSTM penceresi (Stacking'den çıkarıldı - farklı boyut sorunu)
-                            # try:
-                            #     lstm = load_lstm_model("lstm_q50_model.h5")
-                            # except Exception:
-                            #     lstm = None
-                            # if lstm is not None and len(df_stream) >= 20:
-                            #     cols = ["sicaklik", "titresim", "tork"]
-                            #     last_rows = df_stream.tail(20)
-                            #     df_feat = pd.concat([to_features_df(r["sicaklik"], r["titresim"], r["tork"]) for _, r in last_rows.iterrows()], ignore_index=True)
-                            #     X_seq = scaler.transform(df_feat).reshape(1, 20, len(features)).astype("float32")
-                            #     base_preds.append(float(lstm.predict(X_seq, verbose=0).ravel()[0]))
-
-                            if len(base_preds) >= 2:
-                                Z = np.array(base_preds, dtype="float32").reshape(1, -1)
-                                stack_pred = float(stack_model.predict(Z)[0])
-                                st.metric("🧩 Stacking RUL", f"{stack_pred:.2f}")
-                                
-                                # Meta bilgileri göster
-                                meta = load_stack_meta()
-                                if meta:
-                                    st.metric("📊 Taban Model Sayısı", f"{len(base_preds)}")
-                                    st.metric("🎯 Meta Model", meta.get("meta_model", "LinearRegression"))
-                                    st.metric("📈 Test RMSE", f"{meta.get('test_rmse', 'N/A'):.2f}")
-                                
-                                # Taban model tahminlerini göster
-                                st.subheader("Taban Model Tahminleri")
-                                col1, col2, col3 = st.columns(3)
-                                with col1:
-                                    if len(base_preds) > 0:
-                                        st.metric("XGBoost", f"{base_preds[0]:.2f}")
-                                with col2:
-                                    if len(base_preds) > 1:
-                                        st.metric("LightGBM", f"{base_preds[1]:.2f}")
-                                with col3:
-                                    if len(base_preds) > 2:
-                                        st.metric("CatBoost", f"{base_preds[2]:.2f}")
-                            else:
-                                st.info("Stacking için yeterli taban tahmini yüklenemedi.")
-                        except Exception as e:
-                            st.info(f"Stacking tahmini yapılamadı: {e}")
+                        if len(base_preds) >= 2:
+                            Z = np.array(base_preds, dtype="float32").reshape(1, -1)
+                            stack_pred = float(model.predict(Z)[0])  # Ana model değişkeni kullan
+                            st.metric("🧩 Stacking RUL", f"{stack_pred:.2f}")
+                            
+                            # Meta bilgileri göster
+                            meta = load_stack_meta()
+                            if meta:
+                                st.metric("📊 Taban Model Sayısı", f"{len(base_preds)}")
+                                st.metric("🎯 Meta Model", meta.get("meta_model", "LinearRegression"))
+                                if meta.get('test_rmse') != 'N/A':
+                                    st.metric("📈 Test RMSE", f"{meta.get('test_rmse', 0):.2f}")
+                            
+                            # Taban model tahminlerini göster
+                            st.subheader("Taban Model Tahminleri")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                if len(base_preds) > 0:
+                                    st.metric("XGBoost", f"{base_preds[0]:.2f}")
+                            with col2:
+                                if len(base_preds) > 1:
+                                    st.metric("LightGBM", f"{base_preds[1]:.2f}")
+                            with col3:
+                                if len(base_preds) > 2:
+                                    st.metric("CatBoost", f"{base_preds[2]:.2f}")
+                        else:
+                            st.info("Stacking için yeterli taban tahmini yüklenemedi.")
+                    except Exception as e:
+                        st.info(f"Stacking tahmini yapılamadı: {e}")
 
                 # Survival Analysis seçiliyse: Cox modelinden hazard ve survival eğrisi
-                if st.session_state.get("model_selection") == "Survival (cox_model.pkl)":
-                    cox_model = load_survival_model()
-                    if cox_model is None:
-                        st.info("Survival modeli yüklenemedi. Önce survival_train.py'yi çalıştırın.")
-                    else:
-                        try:
-                            # 10 özellik türet ve ölçekle
-                            def to_features_df(s, v, t):
-                                # Boş değerleri varsayılan değerlerle doldur
-                                s = s if pd.notna(s) and s != 0 else 25.0  # Varsayılan sıcaklık
-                                v = v if pd.notna(v) and v != 0 else 500.0  # Varsayılan titreşim
-                                t = t if pd.notna(t) and t != 0 else 3.0   # Varsayılan tork
-                                
-                                data = {
-                                    'sensor_measurement_11': [47.5],
-                                    'sensor_measurement_4': [1400.0 + s],
-                                    'sensor_measurement_12': [521.0 + s/10],
-                                    'sensor_measurement_7': [553.0],
-                                    'sensor_measurement_15': [8.4 + v],
-                                    'sensor_measurement_21': [23.3],
-                                    'sensor_measurement_20': [38.9 + s/5],
-                                    'sensor_measurement_9': [9050.0 + t*10],
-                                    'sensor_measurement_2': [642.0 + s/5],
-                                    'sensor_measurement_14': [8130.0 + t*5]
-                                }
-                                return pd.DataFrame(data)[features]
+                if "Survival" in selected_model:
+                    try:
+                        # 10 özellik türet ve ölçekle
+                        def to_features_df(s, v, t):
+                            s = s if pd.notna(s) and s != 0 else 25.0
+                            v = v if pd.notna(v) and v != 0 else 500.0
+                            t = t if pd.notna(t) and t != 0 else 3.0
+                            
+                            data = {
+                                'sensor_measurement_11': [47.5],
+                                'sensor_measurement_4': [1400.0 + s],
+                                'sensor_measurement_12': [521.0 + s/10],
+                                'sensor_measurement_7': [553.0],
+                                'sensor_measurement_15': [8.4 + v],
+                                'sensor_measurement_21': [23.3],
+                                'sensor_measurement_20': [38.9 + s/5],
+                                'sensor_measurement_9': [9050.0 + t*10],
+                                'sensor_measurement_2': [642.0 + s/5],
+                                'sensor_measurement_14': [8130.0 + t*5]
+                            }
+                            return pd.DataFrame(data)[features]
 
-                            feat_df = to_features_df(sicaklik, titresim, tork)
-                            X_scaled_single = scaler.transform(feat_df)
+                        feat_df = to_features_df(sicaklik, titresim, tork)
+                        X_scaled_single = scaler.transform(feat_df)
+                        
+                        # Cox modelinden hazard ratio hesapla
+                        hazard_ratio = model.predict_partial_hazard(pd.DataFrame(X_scaled_single, columns=features))
+                        
+                        # Survival eğrisi için zaman aralığı (0-200 döngü)
+                        time_points = np.linspace(0, 200, 50)
+                        
+                        # Cox modelinden survival eğrisi al
+                        try:
+                            survival_curve = model.predict_survival_function(pd.DataFrame(X_scaled_single, columns=features), times=time_points)
                             
-                            # Cox modelinden hazard ratio hesapla
-                            hazard_ratio = cox_model.predict_partial_hazard(pd.DataFrame(X_scaled_single, columns=features))
-                            
-                            # Survival eğrisi için zaman aralığı (0-200 döngü)
-                            time_points = np.linspace(0, 200, 50)
-                            
-                            # Cox modelinden survival eğrisi al
-                            try:
-                                survival_curve = cox_model.predict_survival_function(pd.DataFrame(X_scaled_single, columns=features), times=time_points)
-                                
-                                # Eğer tek zaman noktası döndürülürse, manuel olarak eğri oluştur
-                                if survival_curve.shape[1] == 1:
-                                    # Tek noktadan exponential decay eğrisi oluştur
-                                    base_survival = float(survival_curve.iloc[0, 0])
-                                    # Hazard ratio'ya göre decay rate hesapla
-                                    decay_rate = float(hazard_ratio.iloc[0]) * 0.01  # Ölçeklendirme
-                                    survival_values = base_survival * np.exp(-decay_rate * time_points)
-                                    survival_curve = pd.DataFrame([survival_values], columns=time_points)
-                                
-                                # Metrikler
-                                st.metric("⚠️ Hazard Ratio", f"{float(hazard_ratio.iloc[0]):.3f}")
-                                
-                                # Zaman noktalarından uygun indeksleri bul
-                                idx_50 = min(12, survival_curve.shape[1]-1)  # 50 döngü civarı
-                                idx_100 = min(24, survival_curve.shape[1]-1)  # 100 döngü civarı
-                                
-                                st.metric("📈 50 Döngüde Hayatta Kalma", f"{float(survival_curve.iloc[0, idx_50]):.3f}")
-                                st.metric("📈 100 Döngüde Hayatta Kalma", f"{float(survival_curve.iloc[0, idx_100]):.3f}")
-                                
-                            except Exception as e:
-                                # Fallback: basit exponential decay
-                                base_survival = 0.95  # Varsayılan başlangıç survival
-                                decay_rate = float(hazard_ratio.iloc[0]) * 0.005
+                            # Eğer tek zaman noktası döndürülürse, manuel olarak eğri oluştur
+                            if survival_curve.shape[1] == 1:
+                                base_survival = float(survival_curve.iloc[0, 0])
+                                decay_rate = float(hazard_ratio.iloc[0]) * 0.01
                                 survival_values = base_survival * np.exp(-decay_rate * time_points)
                                 survival_curve = pd.DataFrame([survival_values], columns=time_points)
-                                
-                                st.metric("⚠️ Hazard Ratio", f"{float(hazard_ratio.iloc[0]):.3f}")
-                                st.metric("📈 50 Döngüde Hayatta Kalma", f"{float(survival_values[12]):.3f}")
-                                st.metric("📈 100 Döngüde Hayatta Kalma", f"{float(survival_values[24]):.3f}")
-                                st.info("Survival eğrisi model tabanlı hesaplandı")
-                            
-                            # Survival eğrisi grafiği
-                            import matplotlib.pyplot as plt  # type: ignore
-                            fig, ax = plt.subplots(figsize=(8, 4))
-                            
-                            # Artık her zaman tam eğri var
-                            ax.plot(time_points, survival_curve.iloc[0], 'b-', linewidth=2, label='S(t)')
-                            ax.axhline(y=0.5, color='r', linestyle='--', alpha=0.7, label='50% Hayatta Kalma')
-                            ax.axhline(y=0.1, color='orange', linestyle=':', alpha=0.7, label='10% Hayatta Kalma')
-                            
-                            # Eğri altındaki alanı doldur
-                            ax.fill_between(time_points, 0, survival_curve.iloc[0], alpha=0.3, color='blue')
-                            
-                            ax.set_xlabel('Zaman (Döngü)')
-                            ax.set_ylabel('Hayatta Kalma Olasılığı S(t)')
-                            ax.set_title('Cox Survival Eğrisi - Hayatta Kalma Analizi')
-                            ax.grid(True, alpha=0.3)
-                            ax.legend()
-                            ax.set_ylim(0, 1)
-                            ax.set_xlim(0, 200)
-                            
-                            st.pyplot(fig)
-                            
-                        except Exception as e:
-                            st.info(f"Survival tahmini yapılamadı: {e}")
-
-                # Conformal Prediction seçiliyse: garantili güven aralıkları
-                if st.session_state.get("model_selection") == "Conformal (conformal_model.pkl)":
-                    conformal_model = load_conformal_model()
-                    if conformal_model is None:
-                        st.info("Conformal modeli yüklenemedi. Önce conformal_train.py'yi çalıştırın.")
-                    else:
-                        try:
-                            # Meta bilgileri yükle
-                            import json
-                            try:
-                                with open("conformal_meta.json", "r") as f:
-                                    meta = json.load(f)
-                            except:
-                                meta = {"coverage_target_90": 0.9}
-                            
-                            # 10 özellik türet ve ölçekle
-                            def to_features_df(s, v, t):
-                                # Boş değerleri varsayılan değerlerle doldur
-                                s = s if pd.notna(s) and s != 0 else 25.0  # Varsayılan sıcaklık
-                                v = v if pd.notna(v) and v != 0 else 500.0  # Varsayılan titreşim
-                                t = t if pd.notna(t) and t != 0 else 3.0   # Varsayılan tork
-                                
-                                data = {
-                                    'sensor_measurement_11': [47.5],
-                                    'sensor_measurement_4': [1400.0 + s],
-                                    'sensor_measurement_12': [521.0 + s/10],
-                                    'sensor_measurement_7': [553.0],
-                                    'sensor_measurement_15': [8.4 + v],
-                                    'sensor_measurement_21': [23.3],
-                                    'sensor_measurement_20': [38.9 + s/5],
-                                    'sensor_measurement_9': [9050.0 + t*10],
-                                    'sensor_measurement_2': [642.0 + s/5],
-                                    'sensor_measurement_14': [8130.0 + t*5]
-                                }
-                                return pd.DataFrame(data)[features]
-
-                            feat_df = to_features_df(sicaklik, titresim, tork)
-                            X_scaled_single = scaler.transform(feat_df)
-                            
-                            # Quantile prediction
-                            point_pred = float(conformal_model[0.5].predict(X_scaled_single)[0])  # p50
-                            lower_bound = float(conformal_model[0.05].predict(X_scaled_single)[0])  # p5
-                            upper_bound = float(conformal_model[0.95].predict(X_scaled_single)[0])  # p95
-                            interval_width = upper_bound - lower_bound
                             
                             # Metrikler
-                            st.metric("🎯 Nokta Tahmini", f"{point_pred:.2f} döngü")
-                            st.metric("📊 Alt Sınır", f"{lower_bound:.2f} döngü")
-                            st.metric("📊 Üst Sınır", f"{upper_bound:.2f} döngü")
-                            st.metric("📏 Aralık Genişliği", f"{interval_width:.2f} döngü")
+                            st.metric("⚠️ Hazard Ratio", f"{float(hazard_ratio.iloc[0]):.3f}")
                             
-                            # Güven aralığı grafiği
-                            import matplotlib.pyplot as plt  # type: ignore
-                            fig, ax = plt.subplots(figsize=(8, 4))
+                            idx_50 = min(12, survival_curve.shape[1]-1)
+                            idx_100 = min(24, survival_curve.shape[1]-1)
                             
-                            # Güven aralığı (şerit)
-                            ax.fill_between([0, 1], [lower_bound, lower_bound], [upper_bound, upper_bound], 
-                                          alpha=0.3, color='blue', label=f'%{meta["coverage_target_90"]*100:.0f} Güven Aralığı')
-                            
-                            # Nokta tahmini
-                            ax.plot([0, 1], [point_pred, point_pred], 'ro-', linewidth=3, markersize=8, label='Nokta Tahmini')
-                            
-                            # Eşikler
-                            critical_th = 20
-                            planned_th = 50
-                            ax.axhline(critical_th, color='red', linestyle='--', alpha=0.7, label=f'Kritik Eşik ({critical_th})')
-                            ax.axhline(planned_th, color='orange', linestyle=':', alpha=0.7, label=f'Planlı Eşik ({planned_th})')
-                            
-                            ax.set_xlim(0, 1)
-                            ax.set_xticks([])
-                            ax.set_ylabel('Kalan Ömür (RUL) Döngü')
-                            ax.set_title('Conformal Prediction - Garantili Güven Aralığı')
-                            ax.grid(True, alpha=0.3)
-                            ax.legend()
-                            
-                            st.pyplot(fig)
-                            
-                            # Güven mesajı
-                            st.success(f"✅ Bu tahmin %{meta['coverage_target_90']*100:.0f} güvenle doğru!")
+                            st.metric("📈 50 Döngüde Hayatta Kalma", f"{float(survival_curve.iloc[0, idx_50]):.3f}")
+                            st.metric("📈 100 Döngüde Hayatta Kalma", f"{float(survival_curve.iloc[0, idx_100]):.3f}")
                             
                         except Exception as e:
-                            st.info(f"Conformal tahmini yapılamadı: {e}")
+                            # Fallback: basit exponential decay
+                            base_survival = 0.95
+                            decay_rate = float(hazard_ratio.iloc[0]) * 0.005
+                            survival_values = base_survival * np.exp(-decay_rate * time_points)
+                            survival_curve = pd.DataFrame([survival_values], columns=time_points)
+                            
+                            st.metric("⚠️ Hazard Ratio", f"{float(hazard_ratio.iloc[0]):.3f}")
+                            st.metric("📈 50 Döngüde Hayatta Kalma", f"{float(survival_values[12]):.3f}")
+                            st.metric("📈 100 Döngüde Hayatta Kalma", f"{float(survival_values[24]):.3f}")
+                            st.info("Survival eğrisi model tabanlı hesaplandı")
+                        
+                        # Survival eğrisi grafiği
+                        import matplotlib.pyplot as plt  # type: ignore
+                        fig, ax = plt.subplots(figsize=(8, 4))
+                        
+                        ax.plot(time_points, survival_curve.iloc[0], 'b-', linewidth=2, label='S(t)')
+                        ax.axhline(y=0.5, color='r', linestyle='--', alpha=0.7, label='50% Hayatta Kalma')
+                        ax.axhline(y=0.1, color='orange', linestyle=':', alpha=0.7, label='10% Hayatta Kalma')
+                        ax.fill_between(time_points, 0, survival_curve.iloc[0], alpha=0.3, color='blue')
+                        
+                        ax.set_xlabel('Zaman (Döngü)')
+                        ax.set_ylabel('Hayatta Kalma Olasılığı S(t)')
+                        ax.set_title('Cox Survival Eğrisi - Hayatta Kalma Analizi')
+                        ax.grid(True, alpha=0.3)
+                        ax.legend()
+                        ax.set_ylim(0, 1)
+                        ax.set_xlim(0, 200)
+                        
+                        st.pyplot(fig)
+                        
+                    except Exception as e:
+                        st.info(f"Survival tahmini yapılamadı: {e}")
+
+                # Conformal Prediction seçiliyse: garantili güven aralıkları
+                if "Conformal" in selected_model:
+                    try:
+                        # Meta bilgileri yükle
+                        import json
+                        try:
+                            with open("conformal_meta.json", "r") as f:
+                                meta = json.load(f)
+                        except:
+                            meta = {"coverage_target_90": 0.9}
+                        
+                        # 10 özellik türet ve ölçekle
+                        def to_features_df(s, v, t):
+                            s = s if pd.notna(s) and s != 0 else 25.0
+                            v = v if pd.notna(v) and v != 0 else 500.0
+                            t = t if pd.notna(t) and t != 0 else 3.0
+                            
+                            data = {
+                                'sensor_measurement_11': [47.5],
+                                'sensor_measurement_4': [1400.0 + s],
+                                'sensor_measurement_12': [521.0 + s/10],
+                                'sensor_measurement_7': [553.0],
+                                'sensor_measurement_15': [8.4 + v],
+                                'sensor_measurement_21': [23.3],
+                                'sensor_measurement_20': [38.9 + s/5],
+                                'sensor_measurement_9': [9050.0 + t*10],
+                                'sensor_measurement_2': [642.0 + s/5],
+                                'sensor_measurement_14': [8130.0 + t*5]
+                            }
+                            return pd.DataFrame(data)[features]
+
+                        feat_df = to_features_df(sicaklik, titresim, tork)
+                        X_scaled_single = scaler.transform(feat_df)
+                        
+                        # Quantile prediction (model dictionary)
+                        point_pred = float(model[0.5].predict(X_scaled_single)[0])  # p50
+                        lower_bound = float(model[0.05].predict(X_scaled_single)[0])  # p5
+                        upper_bound = float(model[0.95].predict(X_scaled_single)[0])  # p95
+                        interval_width = upper_bound - lower_bound
+                        
+                        # Metrikler
+                        st.metric("🎯 Nokta Tahmini", f"{point_pred:.2f} döngü")
+                        st.metric("📊 Alt Sınır", f"{lower_bound:.2f} döngü")
+                        st.metric("📊 Üst Sınır", f"{upper_bound:.2f} döngü")
+                        st.metric("📏 Aralık Genişliği", f"{interval_width:.2f} döngü")
+                        
+                        # Güven aralığı grafiği
+                        import matplotlib.pyplot as plt  # type: ignore
+                        fig, ax = plt.subplots(figsize=(8, 4))
+                        
+                        # Güven aralığı (şerit)
+                        ax.fill_between([0, 1], [lower_bound, lower_bound], [upper_bound, upper_bound], 
+                                      alpha=0.3, color='blue', label=f'%{meta["coverage_target_90"]*100:.0f} Güven Aralığı')
+                        
+                        # Nokta tahmini
+                        ax.plot([0, 1], [point_pred, point_pred], 'ro-', linewidth=3, markersize=8, label='Nokta Tahmini')
+                        
+                        # Eşikler
+                        critical_th = 20
+                        planned_th = 50
+                        ax.axhline(critical_th, color='red', linestyle='--', alpha=0.7, label=f'Kritik Eşik ({critical_th})')
+                        ax.axhline(planned_th, color='orange', linestyle=':', alpha=0.7, label=f'Planlı Eşik ({planned_th})')
+                        
+                        ax.set_xlim(0, 1)
+                        ax.set_xticks([])
+                        ax.set_ylabel('Kalan Ömür (RUL) Döngü')
+                        ax.set_title('Conformal Prediction - Garantili Güven Aralığı')
+                        ax.grid(True, alpha=0.3)
+                        ax.legend()
+                        
+                        st.pyplot(fig)
+                        
+                        # Güven mesajı
+                        st.success(f"✅ Bu tahmin %{meta['coverage_target_90']*100:.0f} güvenle doğru!")
+                        
+                    except Exception as e:
+                        st.info(f"Conformal tahmini yapılamadı: {e}")
             else:
                 st.warning("⚠️ Henüz veri akışı başlamadı.")
                 st.info("💡 Veri akışını başlatmak için: `python sim_stream.py --out logs/stream.csv`")
@@ -731,8 +692,58 @@ if sicaklik is not None and titresim is not None and tork is not None:
             # Veriyi ölçekle
             X_scaled = scaler.transform(manual_df)
             
-            # Model ile tahmin yap
-            rul_pred = model.predict(X_scaled)[0]
+            # Model seçimine göre özel tahmin mantığı
+            if "LSTM" in selected_model:
+                # LSTM sequence data gerektirir - tek örnek için dummy sequence oluştur
+                # 50 timestep'lik sequence (son değeri tekrar ederek - model bu uzunlukla eğitilmiş)
+                sequence_length = 50
+                X_seq = np.repeat(X_scaled, sequence_length, axis=0).reshape(1, sequence_length, len(features))
+                rul_pred = float(model.predict(X_seq, verbose=0)[0][0])
+                
+            elif "Stacking" in selected_model:
+                # Taban modellerin tahminlerini al
+                base_preds = []
+                try:
+                    model_xgb = joblib.load("xgboost_q50_model.pkl")
+                    base_preds.append(float(model_xgb.predict(X_scaled)[0]))
+                except:
+                    pass
+                try:
+                    model_lgb = joblib.load("lightgbm_q50_model.pkl")
+                    base_preds.append(float(model_lgb.predict(X_scaled)[0]))
+                except:
+                    pass
+                try:
+                    model_cb = joblib.load("catboost_q50_model.pkl")
+                    base_preds.append(float(model_cb.predict(X_scaled)[0]))
+                except:
+                    pass
+                
+                if len(base_preds) >= 2:
+                    Z = np.array(base_preds, dtype="float32").reshape(1, -1)
+                    rul_pred = model.predict(Z)[0]
+                else:
+                    raise Exception("Stacking için yeterli taban model yüklenemedi")
+                    
+            elif "Survival" in selected_model:
+                # Cox modeli - risk score döndürür, RUL'a dönüştür
+                df_pred = pd.DataFrame(X_scaled, columns=features)
+                # Baseline survival'dan RUL tahmini yap (basitleştirilmiş)
+                hazard = model.predict_partial_hazard(df_pred).iloc[0]
+                # Yüksek hazard = düşük RUL
+                rul_pred = max(10.0, 200.0 / (1 + hazard))
+                
+            elif "Conformal" in selected_model:
+                # Conformal model dictionary: {quantile: model}
+                # p50 (median) tahminini al
+                if isinstance(model, dict):
+                    rul_pred = float(model[0.5].predict(X_scaled)[0])
+                else:
+                    raise Exception("Conformal model dictionary değil")
+                    
+            else:
+                # Normal tahmin (XGBoost, LightGBM, CatBoost)
+                rul_pred = model.predict(X_scaled)[0]
             
             # RUL değerinin geçerli olduğundan emin ol (negatif ve NaN'i önle)
             if pd.notna(rul_pred) and rul_pred >= 0:
@@ -767,8 +778,55 @@ if sicaklik is not None and titresim is not None and tork is not None:
             # Veriyi ölçekle
             X_scaled = scaler.transform(auto_df)
             
-            # Model ile tahmin yap
-            rul_pred = model.predict(X_scaled)[0]
+            # Model seçimine göre özel tahmin mantığı
+            if "LSTM" in selected_model:
+                # LSTM sequence data gerektirir - tek örnek için dummy sequence oluştur
+                # 50 timestep'lik sequence (son değeri tekrar ederek - model bu uzunlukla eğitilmiş)
+                sequence_length = 50
+                X_seq = np.repeat(X_scaled, sequence_length, axis=0).reshape(1, sequence_length, len(features))
+                rul_pred = float(model.predict(X_seq, verbose=0)[0][0])
+                
+            elif "Stacking" in selected_model:
+                # Taban modellerin tahminlerini al
+                base_preds = []
+                try:
+                    model_xgb = joblib.load("xgboost_q50_model.pkl")
+                    base_preds.append(float(model_xgb.predict(X_scaled)[0]))
+                except:
+                    pass
+                try:
+                    model_lgb = joblib.load("lightgbm_q50_model.pkl")
+                    base_preds.append(float(model_lgb.predict(X_scaled)[0]))
+                except:
+                    pass
+                try:
+                    model_cb = joblib.load("catboost_q50_model.pkl")
+                    base_preds.append(float(model_cb.predict(X_scaled)[0]))
+                except:
+                    pass
+                
+                if len(base_preds) >= 2:
+                    Z = np.array(base_preds, dtype="float32").reshape(1, -1)
+                    rul_pred = model.predict(Z)[0]
+                else:
+                    raise Exception("Stacking için yeterli taban model yüklenemedi")
+                    
+            elif "Survival" in selected_model:
+                # Cox modeli - risk score döndürür, RUL'a dönüştür
+                df_pred = pd.DataFrame(X_scaled, columns=features)
+                hazard = model.predict_partial_hazard(df_pred).iloc[0]
+                rul_pred = max(10.0, 200.0 / (1 + hazard))
+                
+            elif "Conformal" in selected_model:
+                # Conformal model dictionary: {quantile: model}
+                if isinstance(model, dict):
+                    rul_pred = float(model[0.5].predict(X_scaled)[0])
+                else:
+                    raise Exception("Conformal model dictionary değil")
+                    
+            else:
+                # Normal tahmin (XGBoost, LightGBM, CatBoost)
+                rul_pred = model.predict(X_scaled)[0]
             
             # RUL değerinin geçerli olduğundan emin ol
             if pd.notna(rul_pred) and rul_pred >= 0:

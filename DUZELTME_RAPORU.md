@@ -113,20 +113,3 @@ sensor_measurement_12 (hız):      518.69 - 523.38 (ort: 521.41)
 sensor_measurement_7 (akım):      549.85 - 556.06 (ort: 553.37)
 sensor_measurement_21 (güç):      22.89 - 23.62 (ort: 23.29)
 ```
-
-## 🔮 Gelecek İyileştirmeler
-
-1. **Kritik Eşik Ayarı:** "Çok kötü durum" senaryosu için CRITICAL (RUL<20) almak için:
-   - Kritik eşiği 35'e çıkar veya
-   - Normalizasyon formülünü daha agresif yap
-
-2. **Görselleştirme:** Manuel girişte sensör değerlerini canlı grafik olarak göster
-
-3. **Öneriler:** Her sensör seviyesi için spesifik öneriler ekle
-
----
-
-**Tarih:** 27 Ekim 2025
-**Durum:** ✅ ÇÖZÜLDÜ
-**Test:** ✅ BAŞARILI
-
