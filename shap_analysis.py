@@ -29,9 +29,43 @@ def shap_summary_png(model, x_sample: pd.DataFrame, out_path: str = "reports/sha
         print("🔍 SHAP summary analizi başlıyor...")
         print(f"📊 Örnek veri boyutu: {x_sample.shape}")
         
-        # SHAP explainer oluştur
-        explainer = shap.Explainer(model)
-        shap_values = explainer(x_sample)
+        # Wrapper olup olmadığını kontrol et
+        is_wrapper = hasattr(model, '__class__') and model.__class__.__name__ == 'ModelWrapper'
+        
+        # Model tipini belirle
+        model_name = model.__class__.__name__ if hasattr(model, '__class__') else str(type(model))
+        is_tree_model = any(x in model_name for x in ['XGB', 'LGBM', 'LightGBM', 'CatBoost', 'RandomForest', 'GradientBoosting'])
+        
+        if is_wrapper:
+            # Wrapper için Permutation Explainer kullan (callable)
+            # Background: Train verisinden daha büyük sample (wrapper için gerekli)
+            try:
+                train_df = pd.read_csv("train_rul.csv")
+                feature_cols = x_sample.columns.tolist()
+                bg_sample = train_df[feature_cols].sample(min(200, len(train_df)), random_state=42)
+                print(f"📊 Background sample: {bg_sample.shape}")
+            except:
+                # Fallback: x_sample'dan küçük sample
+                bg_sample = x_sample.sample(min(50, len(x_sample)), random_state=42)
+                print(f"⚠️ Background fallback: {bg_sample.shape}")
+            
+            explainer = shap.PermutationExplainer(model, bg_sample)
+            shap_values = explainer(x_sample)
+        elif is_tree_model:
+            # Tree model için otomatik explainer (TreeExplainer seçer)
+            explainer = shap.Explainer(model)
+            shap_values = explainer(x_sample)
+        else:
+            # Diğer modeller için Permutation Explainer
+            try:
+                train_df = pd.read_csv("train_rul.csv")
+                feature_cols = x_sample.columns.tolist()
+                bg_sample = train_df[feature_cols].sample(min(200, len(train_df)), random_state=42)
+            except:
+                bg_sample = x_sample.sample(min(50, len(x_sample)), random_state=42)
+            
+            explainer = shap.PermutationExplainer(model.predict, bg_sample)
+            shap_values = explainer(x_sample)
         
         # Summary plot oluştur
         plt.figure(figsize=(12, 8))
@@ -63,9 +97,43 @@ def shap_local_png(model, x_one: pd.DataFrame, out_path: str = "reports/shap_loc
         print("🔍 SHAP lokal analizi başlıyor...")
         print(f"🎯 Örnek veri boyutu: {x_one.shape}")
         
-        # SHAP explainer oluştur
-        explainer = shap.Explainer(model)
-        shap_values = explainer(x_one)
+        # Wrapper olup olmadığını kontrol et
+        is_wrapper = hasattr(model, '__class__') and model.__class__.__name__ == 'ModelWrapper'
+        
+        # Model tipini belirle
+        model_name = model.__class__.__name__ if hasattr(model, '__class__') else str(type(model))
+        is_tree_model = any(x in model_name for x in ['XGB', 'LGBM', 'LightGBM', 'CatBoost', 'RandomForest', 'GradientBoosting'])
+        
+        if is_wrapper:
+            # Wrapper için Permutation Explainer kullan (callable)
+            # Background: Train verisinden sample yükle
+            try:
+                train_df = pd.read_csv("train_rul.csv")
+                feature_cols = x_one.columns.tolist()
+                bg_sample = train_df[feature_cols].sample(min(100, len(train_df)), random_state=42)
+                print(f"📊 Background sample: {bg_sample.shape}")
+            except:
+                # Fallback: x_one'ı tekrarla
+                bg_sample = pd.concat([x_one] * 50, ignore_index=True)
+                print(f"⚠️ Background fallback: {bg_sample.shape}")
+            
+            explainer = shap.PermutationExplainer(model, bg_sample)
+            shap_values = explainer(x_one)
+        elif is_tree_model:
+            # Tree model için otomatik explainer (TreeExplainer seçer)
+            explainer = shap.Explainer(model)
+            shap_values = explainer(x_one)
+        else:
+            # Diğer modeller için Permutation Explainer
+            try:
+                train_df = pd.read_csv("train_rul.csv")
+                feature_cols = x_one.columns.tolist()
+                bg_sample = train_df[feature_cols].sample(min(100, len(train_df)), random_state=42)
+            except:
+                bg_sample = pd.concat([x_one] * 50, ignore_index=True)
+            
+            explainer = shap.PermutationExplainer(model.predict, bg_sample)
+            shap_values = explainer(x_one)
         
         # Waterfall plot oluştur
         plt.figure(figsize=(12, 8))

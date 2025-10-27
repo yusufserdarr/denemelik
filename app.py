@@ -917,10 +917,136 @@ if sicaklik is not None and titresim is not None and tork is not None:
     st.markdown("---")
     st.subheader("🧩 Model Açıklamaları (Explainability)")
     
+    # Özel modeller için wrapper oluştur
+    class ModelWrapper:
+        """LIME/SHAP için özel modelleri sarmalayan wrapper"""
+        def __init__(self, model, model_type, scaler, features):
+            self.model = model
+            self.model_type = model_type
+            self.scaler = scaler
+            self.features = features
+            
+            # Stacking için taban modelleri önden yükle (performans optimizasyonu)
+            self.base_models = {}
+            if "Stacking" in self.model_type:
+                try:
+                    self.base_models['xgboost'] = joblib.load("xgboost_q50_model.pkl")
+                except:
+                    pass
+                try:
+                    self.base_models['lightgbm'] = joblib.load("lightgbm_q50_model.pkl")
+                except:
+                    pass
+                try:
+                    self.base_models['catboost'] = joblib.load("catboost_q50_model.pkl")
+                except:
+                    pass
+        
+        def __call__(self, X):
+            """SHAP için callable interface - predict'e yönlendir"""
+            return self.predict(X)
+        
+        def predict(self, X):
+            """Tüm model türleri için unified predict interface"""
+            # Input'u numpy array'e dönüştür
+            if isinstance(X, pd.DataFrame):
+                X_array = X.values
+            else:
+                X_array = np.asarray(X)
+            
+            # Tek boyutlu array'i 2D'ye dönüştür
+            if len(X_array.shape) == 1:
+                X_array = X_array.reshape(1, -1)
+            
+            # Float tipinde olduğundan emin ol
+            X_array = X_array.astype(np.float64)
+            
+            if "LSTM" in self.model_type:
+                # LSTM için sequence oluştur
+                sequence_length = 50
+                predictions = []
+                for i in range(X_array.shape[0]):
+                    X_seq = np.repeat(X_array[i:i+1], sequence_length, axis=0).reshape(1, sequence_length, len(self.features))
+                    pred = float(self.model.predict(X_seq, verbose=0)[0][0])
+                    predictions.append(pred)
+                return np.array(predictions, dtype=np.float64)
+                
+            elif "Stacking" in self.model_type:
+                # Stacking: taban modellerin tahminlerini al (önden yüklenmiş)
+                predictions = []
+                for i in range(X_array.shape[0]):
+                    base_preds = []
+                    
+                    if 'xgboost' in self.base_models:
+                        try:
+                            pred = self.base_models['xgboost'].predict(X_array[i:i+1])
+                            base_preds.append(float(pred[0]) if hasattr(pred, '__getitem__') else float(pred))
+                        except:
+                            pass
+                    if 'lightgbm' in self.base_models:
+                        try:
+                            pred = self.base_models['lightgbm'].predict(X_array[i:i+1])
+                            base_preds.append(float(pred[0]) if hasattr(pred, '__getitem__') else float(pred))
+                        except:
+                            pass
+                    if 'catboost' in self.base_models:
+                        try:
+                            pred = self.base_models['catboost'].predict(X_array[i:i+1])
+                            base_preds.append(float(pred[0]) if hasattr(pred, '__getitem__') else float(pred))
+                        except:
+                            pass
+                    
+                    if len(base_preds) >= 2:
+                        Z = np.array(base_preds, dtype="float32").reshape(1, -1)
+                        predictions.append(float(self.model.predict(Z)[0]))
+                    else:
+                        predictions.append(100.0)  # Fallback
+                return np.array(predictions, dtype=np.float64)
+                
+            elif "Survival" in self.model_type:
+                # Cox modeli: hazard'dan RUL'a dönüştür
+                predictions = []
+                for i in range(X_array.shape[0]):
+                    df_pred = pd.DataFrame(X_array[i:i+1], columns=self.features)
+                    try:
+                        hazard = self.model.predict_partial_hazard(df_pred).iloc[0]
+                        rul = max(10.0, 200.0 / (1 + float(hazard)))
+                    except:
+                        rul = 100.0  # Fallback
+                    predictions.append(rul)
+                return np.array(predictions, dtype=np.float64)
+                
+            elif "Conformal" in self.model_type:
+                # Conformal: p50 quantile kullan
+                if isinstance(self.model, dict):
+                    preds = self.model[0.5].predict(X_array)
+                    return np.array(preds, dtype=np.float64)
+                preds = self.model.predict(X_array)
+                return np.array(preds, dtype=np.float64)
+                
+            else:
+                # Normal modeller (XGBoost, LightGBM, CatBoost)
+                preds = self.model.predict(X_array)
+                return np.array(preds, dtype=np.float64)
+    
+    # Model wrapper'ı sadece özel modeller için kullan
+    needs_wrapper = any(x in selected_model for x in ["LSTM", "Stacking", "Survival", "Conformal"])
+    
+    if needs_wrapper:
+        wrapped_model = ModelWrapper(model, selected_model, scaler, features)
+        model_for_explain = wrapped_model
+        st.info(f"ℹ️ **{selected_model}** için özel explainability desteği aktif. "
+                "SHAP/LIME analizleri biraz daha uzun sürebilir.")
+    else:
+        # Standart modeller için orijinal modeli kullan
+        model_for_explain = model
+    
+    explainability_supported = True  # Artık hepsi destekleniyor
+    
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("🔍 LIME Açıklaması", width='stretch'):
+        if st.button("🔍 LIME Açıklaması", width='stretch', disabled=not explainability_supported):
             try:
                 with st.spinner("LIME açıklaması oluşturuluyor..."):
                     # Örnek veri oluştur - sensör mapping'ini kullan
@@ -938,7 +1064,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
                     }
                     sample_df = pd.DataFrame(sample_data)
                     
-                    html_file, lime_exp = explain_instance(model, scaler, sample_df, features, "reports/lime_explanation.html")
+                    html_file, lime_exp = explain_instance(model_for_explain, scaler, sample_df, features, "reports/lime_explanation.html")
                     
                 st.success("✅ LIME açıklaması oluşturuldu!")
                 
@@ -1006,7 +1132,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
                 st.code(traceback.format_exc())
     
     with col2:
-        if st.button("📊 SHAP Lokal Grafiği", width='stretch'):
+        if st.button("📊 SHAP Lokal Grafiği", width='stretch', disabled=not explainability_supported):
             try:
                 with st.spinner("SHAP lokal analizi yapılıyor..."):
                     # Örnek veri oluştur - sensör mapping'ini kullan
@@ -1030,7 +1156,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
                         columns=sample_df.columns
                     )
                     
-                    local_path = shap_local_png(model, X_scaled)
+                    local_path = shap_local_png(model_for_explain, X_scaled)
                     
                 st.success("✅ SHAP lokal grafiği oluşturuldu!")
                 
@@ -1042,7 +1168,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
                 st.error(f"❌ SHAP lokal hatası: {e}")
     
     with col3:
-        if st.button("📈 SHAP Özet Grafiği", width='stretch'):
+        if st.button("📈 SHAP Özet Grafiği", width='stretch', disabled=not explainability_supported):
             try:
                 with st.spinner("SHAP özet analizi yapılıyor..."):
                     # Örnek veri yükle
@@ -1055,7 +1181,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
                         index=X_sample.index
                     )
                     
-                    summary_path = shap_summary_png(model, X_scaled)
+                    summary_path = shap_summary_png(model_for_explain, X_scaled)
                     
                 st.success("✅ SHAP özet grafiği oluşturuldu!")
                 
