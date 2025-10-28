@@ -249,6 +249,26 @@ if data_source == "Canlı Akış":
                 sicaklik = latest["sicaklik"].iloc[0]
                 titresim = latest["titresim"].iloc[0]
                 tork = latest["tork"].iloc[0]
+                
+                # Canlı akış verilerini sensör değişkenlerine dönüştür (RUL tahmini ve SHAP için)
+                # Sıcaklık mapping: canlı akıştan gelen değeri model anlayacağı aralığa dönüştür
+                # Canlı akış 200-700 aralığında, model 1390-1441 aralığında bekliyor
+                sicaklik_normalized = (sicaklik - 200) / (700 - 200)  # 0-1 arası normalize
+                sensor_4 = 1390.0 + sicaklik_normalized * (1441.49 - 1390.0)  # Model aralığına map et
+                
+                # Titreşim mapping: canlı akış 0.1-5, model 8.32-8.58 bekliyor
+                titresim_normalized = (titresim - 0.1) / (5.0 - 0.1)
+                sensor_15 = 8.32 + titresim_normalized * (8.58 - 8.32)
+                
+                # Diğer sensörler için sabit/türetilmiş değerler
+                sensor_11 = 47.5  # Basınç (sabit)
+                sensor_12 = 521.0 + sensor_4 / 100  # Hız (sıcaklıktan türetilmiş)
+                sensor_7 = 553.0  # Akım (sabit)
+                sensor_21 = 23.3  # Güç (sabit)
+                sensor_20 = 38.9 + (sicaklik - 450) / 50  # Nem (sıcaklıktan türetilmiş)
+                sensor_9 = 9050.0 + tork * 5  # Tork sensörü
+                sensor_2 = 642.0 + (sicaklik - 450) / 25  # Basınç sensörü 2
+                sensor_14 = 8130.0 + tork * 2  # Güç sensörü
 
                 # LSTM seçiliyse gerçek zaman serisi ile tahmin (canlı akışta)
                 if "LSTM" in selected_model:
@@ -557,6 +577,22 @@ elif data_source == "Dosya Yükle":
             sicaklik = latest["sicaklik"].iloc[0]
             titresim = latest["titresim"].iloc[0]
             tork = latest["tork"].iloc[0]
+            
+            # Dosya yükleme verilerini sensör değişkenlerine dönüştür (RUL tahmini ve SHAP için)
+            sicaklik_normalized = (sicaklik - 200) / (700 - 200)
+            sensor_4 = 1390.0 + sicaklik_normalized * (1441.49 - 1390.0)
+            
+            titresim_normalized = (titresim - 0.1) / (5.0 - 0.1)
+            sensor_15 = 8.32 + titresim_normalized * (8.58 - 8.32)
+            
+            sensor_11 = 47.5
+            sensor_12 = 521.0 + sensor_4 / 100
+            sensor_7 = 553.0
+            sensor_21 = 23.3
+            sensor_20 = 38.9 + (sicaklik - 450) / 50
+            sensor_9 = 9050.0 + tork * 5
+            sensor_2 = 642.0 + (sicaklik - 450) / 25
+            sensor_14 = 8130.0 + tork * 2
         except Exception as e:
             st.error(f"Dosya okuma hatası: {e}")
             st.stop()
