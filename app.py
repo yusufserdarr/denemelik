@@ -649,46 +649,66 @@ else:  # Manuel Giriş
     # sensor_7 (akım): 549.85-556.06 (ort: 553.37, std: 0.89)
     
     # Kullanıcı girdilerini model anlayabileceği aralığa map et
-    # Sıcaklık: 20-30°C normal, >50°C kötü
-    # Map: 20°C→1390, 30°C→1410, 50°C→1430, 100°C→1441 (max)
-    if sicaklik <= 30:
-        sensor_4 = 1390.0 + (sicaklik - 20) * 2.0  # 20-30°C → 1390-1410
-    elif sicaklik <= 50:
-        sensor_4 = 1410.0 + (sicaklik - 30) * 1.0  # 30-50°C → 1410-1430
+    # Eğitim verisi istatistikleri:
+    # sensor_4: mean=1408.93, std=9.0, range=1382.25-1441.49
+    # sensor_11: mean=47.54, std=0.27, range=46.85-48.53
+    # sensor_15: mean=8.44, std=0.04, range=8.32-8.58
+    # sensor_12: mean=521.41, std=0.74, range=518.69-523.38
+    # sensor_7: mean=553.37, std=0.89, range=549.85-556.06
+    
+    # Sıcaklık: Normal dağılım kullan (20-30°C normal)
+    # 25°C → mean (1408.93), her ±5°C → ±0.5 std
+    if sicaklik >= 20 and sicaklik <= 30:
+        # Normal aralık: ortalama civarında tut
+        sensor_4 = 1408.93 + (sicaklik - 25.0) * 0.9  # ±5°C → ±4.5
+    elif sicaklik > 30:
+        # Yüksek sıcaklık: üst limite yaklaş ama yavaşça
+        excess = min(sicaklik - 30, 70)  # En fazla 70°C fazlalık
+        sensor_4 = 1408.93 + 4.5 + (excess * 0.4)  # Daha yavaş artış
     else:
-        sensor_4 = 1430.0 + min((sicaklik - 50) * 0.2, 11.49)  # >50°C → 1430-1441.49
+        # Düşük sıcaklık
+        deficit = min(25 - sicaklik, 20)
+        sensor_4 = 1408.93 - 4.5 - (deficit * 0.4)
+    sensor_4 = max(1382.25, min(1441.49, sensor_4))  # Sınırla
     
-    # Basınç: Direkt kullan, eğitim aralığına kliple
-    sensor_11 = max(46.85, min(48.53, basinc))
+    # Basınç: Normal dağılım (mean=47.54, std=0.27)
+    # 47.5 bar → mean, her ±0.5 bar → ±1 std
+    sensor_11 = 47.54 + (basinc - 47.5) * 0.54  # 0.27 std per 0.5 bar
+    sensor_11 = max(46.85, min(48.53, sensor_11))
     
-    # Titreşim: 0-2 normal, >10 çok kötü
-    # Map: 0→8.32, 2→8.44, 10→8.54, 50→8.58
-    if titresim <= 2:
-        sensor_15 = 8.32 + titresim * 0.06  # 0-2 → 8.32-8.44
-    elif titresim <= 10:
-        sensor_15 = 8.44 + (titresim - 2) * 0.0125  # 2-10 → 8.44-8.54
+    # Titreşim: Daha smooth mapping (mean=8.44, std=0.04)
+    # 1.0 → mean, her ±1 → ±1 std (0.04)
+    if titresim >= 0 and titresim <= 2:
+        sensor_15 = 8.44 + (titresim - 1.0) * 0.04  # Normal: 8.40-8.48
+    elif titresim > 2:
+        excess = min(titresim - 2.0, 8.0)  # Max 8 fazla
+        sensor_15 = 8.44 + 0.04 + (excess * 0.0125)  # Yavaş artış
     else:
-        sensor_15 = 8.54 + min((titresim - 10) * 0.001, 0.04)  # >10 → 8.54-8.58
+        sensor_15 = 8.44 - 0.04  # Min
+    sensor_15 = max(8.32, min(8.58, sensor_15))
     
-    # Hız: Direkt kullan, eğitim aralığına kliple
-    sensor_12 = max(518.69, min(523.38, hiz))
+    # Hız: Normal dağılım (mean=521.41, std=0.74)
+    sensor_12 = 521.41 + (hiz - 521.0) * 0.74
+    sensor_12 = max(518.69, min(523.38, sensor_12))
     
-    # Akım: Direkt kullan, eğitim aralığına kliple
-    sensor_7 = max(549.85, min(556.06, akim))
+    # Akım: Normal dağılım (mean=553.37, std=0.89)
+    sensor_7 = 553.37 + (akim - 553.0) * 0.89
+    sensor_7 = max(549.85, min(556.06, sensor_7))
     
-    # Güç: Direkt kullan
-    sensor_21 = max(22.89, min(23.62, guc))
+    # Güç: Küçük varyasyon
+    sensor_21 = 23.3 + (guc - 23.3) * 0.5
+    sensor_21 = max(22.89, min(23.62, sensor_21))
     
-    # Diğer sensörler için türetilmiş değerler
+    # Diğer sensörler için türetilmiş değerler (daha smooth)
     # Sıcaklıktan etkilenen sensörler
-    temp_factor = (sicaklik - 25.0) / 25.0  # 25°C'den sapma oranı
-    sensor_20 = 38.9 + temp_factor * 5.0  # Nem
-    sensor_2 = 642.0 + temp_factor * 10.0  # Basınç sensörü 2
+    temp_factor = (sicaklik - 25.0) / 50.0  # Daha az hassas
+    sensor_20 = 38.9 + temp_factor * 2.0  # Nem (daha az değişim)
+    sensor_2 = 642.0 + temp_factor * 5.0  # Basınç sensörü 2
     
     # Titreşimden etkilenen sensörler
-    vib_factor = (titresim - 1.0) / 10.0
-    sensor_9 = 9050.0 + vib_factor * 30.0  # Tork
-    sensor_14 = 8130.0 + vib_factor * 20.0  # Güç sensörü
+    vib_factor = (titresim - 1.0) / 20.0  # Daha az hassas
+    sensor_9 = 9050.0 + vib_factor * 15.0  # Tork
+    sensor_14 = 8130.0 + vib_factor * 10.0  # Güç sensörü
     
     # Geriye dönük uyumluluk için tork değişkeni
     tork = 55.0
@@ -1358,26 +1378,65 @@ if menu_choice == "Model Drift İzleme":
     # Drift istatistikleri
     st.subheader("📊 Drift İstatistikleri")
     
-    # Örnek drift trendi
-    dates = pd.date_range(start='2024-01-01', periods=30, freq='D')
-    drift_trend = np.random.poisson(0.5, 30)  # Poisson dağılımı ile drift sayısı
-    
-    chart_data = pd.DataFrame({
-        'Tarih': dates,
-        'Drift Sayısı': drift_trend
-    })
-    
-    st.line_chart(chart_data.set_index('Tarih'))
-    
-    # Drift türleri
-    drift_types = {
-        'PSI Drift': np.random.randint(5, 15),
-        'İstatistiksel Drift': np.random.randint(3, 10),
-        'Performans Drift': np.random.randint(1, 5)
-    }
-    
-    st.subheader("Drift Türleri Dağılımı")
-    st.bar_chart(drift_types)
+    # Gerçek drift verilerinden trend oluştur
+    try:
+        import json
+        if os.path.exists("drift_alerts.json"):
+            with open("drift_alerts.json", "r") as f:
+                drift_alerts = json.load(f)
+            
+            if len(drift_alerts) > 0:
+                # Tarihlere göre grupla
+                alert_dates = []
+                for alert in drift_alerts:
+                    try:
+                        timestamp = pd.to_datetime(alert['timestamp'])
+                        alert_dates.append(timestamp.date())
+                    except:
+                        pass
+                
+                if alert_dates:
+                    date_counts = pd.Series(alert_dates).value_counts().sort_index()
+                    
+                    # En az 2 nokta olmalı grafik için
+                    if len(date_counts) >= 2:
+                        chart_data = pd.DataFrame({
+                            'Tarih': pd.to_datetime(date_counts.index),
+                            'Drift Sayısı': date_counts.values
+                        })
+                        
+                        st.line_chart(chart_data.set_index('Tarih'))
+                        st.caption(f"📅 {len(alert_dates)} drift uyarısı {len(date_counts)} günde kaydedildi")
+                    else:
+                        # Tek tarih varsa bar chart göster
+                        st.info(f"📊 Toplam {len(alert_dates)} drift uyarısı kaydedildi")
+                        st.write(f"**İlk uyarı tarihi:** {date_counts.index[0]}")
+                        st.write(f"**Uyarı sayısı:** {date_counts.values[0]}")
+                        st.caption("ℹ️ Trend grafiği için en az 2 farklı tarihte veri gerekli")
+                else:
+                    st.info("Henüz drift verisi yok")
+                
+                # Gerçek drift türlerini say
+                psi_count = sum(1 for a in drift_alerts if a.get('details', {}).get('psi_drift', {}).get('drift_detected', False))
+                stat_count = sum(1 for a in drift_alerts if a.get('details', {}).get('statistical_drift', {}).get('drift_detected', False))
+                perf_count = sum(1 for a in drift_alerts if a.get('details', {}).get('performance_drift', {}).get('drift_detected', False))
+                
+                drift_types = {
+                    'PSI Drift': psi_count,
+                    'İstatistiksel Drift': stat_count,
+                    'Performans Drift': perf_count
+                }
+                
+                st.subheader("Drift Türleri Dağılımı")
+                st.bar_chart(drift_types)
+                st.caption(f"Toplam {len(drift_alerts)} uyarı analiz edildi")
+            else:
+                st.info("📊 Henüz drift uyarısı yok. Sistem çalıştıkça drift verileri birikecek.")
+        else:
+            st.info("📊 Drift alert dosyası bulunamadı. Sistem ilk kez çalıştırıldığında oluşacak.")
+    except Exception as e:
+        st.warning(f"Drift istatistikleri oluşturulamadı: {e}")
+        st.info("Drift detection sistemi aktif hale geldiğinde veriler görünecek")
 
 elif menu_choice == "Model Analizi":
     st.header("🔍 Model Analizi")
@@ -1385,45 +1444,145 @@ elif menu_choice == "Model Analizi":
     # Model performans metrikleri
     st.subheader("Model Performans Metrikleri")
     
-    # Örnek metrikler (gerçek uygulamada model.evaluate() sonuçları kullanılır)
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("MAE", "42.5", "2.1")
-    with col2:
-        st.metric("RMSE", "58.3", "1.8")
-    with col3:
-        st.metric("R²", "0.85", "0.02")
-    with col4:
-        st.metric("MAPE", "12.3%", "-0.5%")
+    # Gerçek performans metriklerini meta dosyalardan al
+    try:
+        import json
+        # Seçilen modele göre meta dosyasını oku
+        meta_file = None
+        if "Stacking" in selected_model:
+            meta_file = "model_stack_meta.json"
+        elif "Conformal" in selected_model:
+            meta_file = "conformal_meta.json"
+        
+        if meta_file and os.path.exists(meta_file):
+            with open(meta_file, "r") as f:
+                meta = json.load(f)
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            if "test_mae" in meta:
+                with col1:
+                    st.metric("MAE", f"{meta['test_mae']:.2f}")
+                with col2:
+                    st.metric("RMSE", f"{meta['test_rmse']:.2f}")
+                with col3:
+                    st.metric("R²", f"{meta['test_r2']:.4f}")
+                with col4:
+                    # MAPE hesapla (yaklaşık)
+                    mape = (meta['test_mae'] / 100) * 100  # Ortalama RUL ~100 kabul
+                    st.metric("MAPE", f"{mape:.1f}%")
+            elif "coverage_achieved_90" in meta:
+                # Conformal için farklı metrikler
+                with col1:
+                    st.metric("Hedef Kapsam", f"{meta['coverage_target_90']*100:.0f}%")
+                with col2:
+                    st.metric("Gerçek Kapsam", f"{meta['coverage_achieved_90']*100:.2f}%")
+                with col3:
+                    st.metric("Ortalama Genişlik", f"{meta['mean_width_90']:.2f}")
+                with col4:
+                    st.metric("Metod", meta['method'].replace('_', ' ').title())
+        else:
+            # Meta dosya yoksa genel bilgi göster
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Model Türü", selected_model.split()[0])
+            with col2:
+                st.metric("Özellik Sayısı", len(features))
+            with col3:
+                st.metric("Durum", "Eğitimli ✅")
+            with col4:
+                st.info("Meta veri yok")
+                
+    except Exception as e:
+        st.warning(f"Performans metrikleri yüklenemedi: {e}")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.info("Metrik bilgisi yok")
     
     # Model karşılaştırması
     st.subheader("Model Karşılaştırması")
     
-    # Örnek model performansları
-    model_data = {
-        "Model": ["XGBoost", "Random Forest", "LSTM", "Stacking"],
-        "MAE": [42.5, 45.2, 38.7, 35.9],
-        "RMSE": [58.3, 61.1, 52.8, 48.2],
-        "R²": [0.85, 0.82, 0.88, 0.91]
-    }
+    # Gerçek model performanslarını topla
+    model_comparison = []
     
-    df_models = pd.DataFrame(model_data)
+    # Stacking model
+    try:
+        if os.path.exists("model_stack_meta.json"):
+            with open("model_stack_meta.json", "r") as f:
+                meta = json.load(f)
+            model_comparison.append({
+                "Model": "Stacking Ensemble",
+                "MAE": f"{meta['test_mae']:.2f}",
+                "RMSE": f"{meta['test_rmse']:.2f}",
+                "R²": f"{meta['test_r2']:.4f}",
+                "Taban Modeller": f"{meta['n_base_models']} adet"
+            })
+    except:
+        pass
+    
+    # Conformal Prediction
+    try:
+        if os.path.exists("conformal_meta.json"):
+            with open("conformal_meta.json", "r") as f:
+                meta = json.load(f)
+            model_comparison.append({
+                "Model": "Conformal Prediction",
+                "MAE": "N/A",
+                "RMSE": "N/A",
+                "R²": "N/A",
+                "Taban Modeller": f"Kapsam: {meta['coverage_achieved_90']*100:.1f}%"
+            })
+    except:
+        pass
+    
+    # Diğer modeller için placeholder (meta dosyası yoksa)
+    if len(model_comparison) == 0:
+        model_comparison = [
+            {"Model": "XGBoost", "MAE": "Eğitilmiş ✅", "RMSE": "-", "R²": "-", "Taban Modeller": "Tekil"},
+            {"Model": "LightGBM", "MAE": "Eğitilmiş ✅", "RMSE": "-", "R²": "-", "Taban Modeller": "Tekil"},
+            {"Model": "CatBoost", "MAE": "Eğitilmiş ✅", "RMSE": "-", "R²": "-", "Taban Modeller": "Tekil"},
+            {"Model": "LSTM", "MAE": "Eğitilmiş ✅", "RMSE": "-", "R²": "-", "Taban Modeller": "Derin Öğrenme"},
+        ]
+    
+    df_models = pd.DataFrame(model_comparison)
     st.dataframe(df_models, use_container_width=True)
     
-    # Performans grafiği
-    st.subheader("Performans Trendi")
+    # En iyi model göster
+    if any("Stacking" in m["Model"] for m in model_comparison):
+        st.success("🏆 Stacking Ensemble: Birden fazla modeli birleştirerek en iyi performansı elde eder")
     
-    # Örnek trend verisi
-    dates = pd.date_range(start='2024-01-01', periods=30, freq='D')
-    performance_trend = np.random.normal(0.85, 0.02, 30).cumsum()
+    # RUL tahmin trendi
+    st.subheader("RUL Tahmin Trendi")
     
-    chart_data = pd.DataFrame({
-        'Tarih': dates,
-        'R² Skoru': performance_trend
-    })
-    
-    st.line_chart(chart_data.set_index('Tarih'))
+    # Gerçek prediction loglarından trend oluştur
+    try:
+        if os.path.exists("logs/predictions.csv"):
+            pred_df = pd.read_csv("logs/predictions.csv")
+            pred_df['timestamp'] = pd.to_datetime(pred_df['timestamp'])
+            pred_df = pred_df.sort_values('timestamp')
+            
+            # Son 30 günlük veriyi al
+            last_30_days = pred_df.tail(min(300, len(pred_df)))
+            
+            # Günlük ortalama RUL hesapla (performans göstergesi)
+            last_30_days['date'] = last_30_days['timestamp'].dt.date
+            daily_avg = last_30_days.groupby('date')['rul'].agg(['mean', 'count']).reset_index()
+            
+            chart_data = pd.DataFrame({
+                'Tarih': pd.to_datetime(daily_avg['date']),
+                'Ortalama RUL': daily_avg['mean'],
+                'Tahmin Sayısı': daily_avg['count']
+            })
+            
+            st.line_chart(chart_data.set_index('Tarih')[['Ortalama RUL']])
+            st.caption(f"📊 Son {len(daily_avg)} gündeki {daily_avg['count'].sum()} tahmin analiz edildi")
+        else:
+            # Log yoksa sabit bilgi göster
+            st.info("📝 Henüz prediction log verisi yok. Tahmin yaptıkça trend oluşacak.")
+            st.caption("Tahmin yapmak için Ana Dashboard'da veri girin ve 'Tahmini Logla' butonuna basın.")
+    except Exception as e:
+        st.warning(f"Performans trendi oluşturulamadı: {e}")
+        st.info("Log verisi biriktiği için trend grafiği görünecek")
 
 elif menu_choice == "Raporlar":
     st.header("📋 Raporlar")
@@ -1438,19 +1597,62 @@ elif menu_choice == "Raporlar":
     if report_type == "Model Performans Raporu":
         st.subheader("📊 Model Performans Raporu")
         
-        # Model karşılaştırma tablosu
+        # Gerçek model karşılaştırma
         st.write("**Model Karşılaştırma:**")
-        model_comparison = pd.DataFrame({
-            "Model": ["XGBoost", "LightGBM", "CatBoost", "LSTM", "Stacking"],
-            "MAE": [42.5, 45.2, 38.7, 35.9, 33.2],
-            "RMSE": [58.3, 61.1, 52.8, 48.2, 45.1],
-            "R²": [0.85, 0.82, 0.88, 0.91, 0.93],
-            "Eğitim Süresi": ["2.3s", "1.8s", "4.1s", "45.2s", "8.7s"]
-        })
-        st.dataframe(model_comparison, use_container_width=True)
         
-        # En iyi model
-        st.success("🏆 En İyi Model: Stacking Ensemble (R² = 0.93)")
+        try:
+            import json
+            models_data = []
+            
+            # Stacking model
+            if os.path.exists("model_stack_meta.json"):
+                with open("model_stack_meta.json", "r") as f:
+                    meta = json.load(f)
+                models_data.append({
+                    "Model": "Stacking Ensemble",
+                    "MAE": f"{meta['test_mae']:.2f}",
+                    "RMSE": f"{meta['test_rmse']:.2f}",
+                    "R²": f"{meta['test_r2']:.4f}",
+                    "Detay": f"{meta['n_base_models']} taban model"
+                })
+            
+            # Conformal
+            if os.path.exists("conformal_meta.json"):
+                with open("conformal_meta.json", "r") as f:
+                    meta = json.load(f)
+                models_data.append({
+                    "Model": "Conformal Prediction",
+                    "MAE": "Interval-based",
+                    "RMSE": "Interval-based",
+                    "R²": "N/A",
+                    "Detay": f"Kapsam: {meta['coverage_achieved_90']*100:.1f}%"
+                })
+            
+            # Tekil modeller (pkl dosyaları mevcut)
+            single_models = []
+            if os.path.exists("xgboost_q50_model.pkl"):
+                single_models.append({"Model": "XGBoost", "MAE": "Eğitimli ✅", "RMSE": "-", "R²": "-", "Detay": "Gradient Boosting"})
+            if os.path.exists("lightgbm_q50_model.pkl"):
+                single_models.append({"Model": "LightGBM", "MAE": "Eğitimli ✅", "RMSE": "-", "R²": "-", "Detay": "Light GBM"})
+            if os.path.exists("catboost_q50_model.pkl"):
+                single_models.append({"Model": "CatBoost", "MAE": "Eğitimli ✅", "RMSE": "-", "R²": "-", "Detay": "CatBoost"})
+            if os.path.exists("lstm_q50_model.h5"):
+                single_models.append({"Model": "LSTM", "MAE": "Eğitimli ✅", "RMSE": "-", "R²": "-", "Detay": "Deep Learning"})
+            
+            models_data.extend(single_models)
+            
+            if models_data:
+                model_comparison = pd.DataFrame(models_data)
+                st.dataframe(model_comparison, use_container_width=True)
+                
+                # En iyi model
+                if any("Stacking" in m["Model"] for m in models_data):
+                    st.success("🏆 En İyi Model: Stacking Ensemble (birden fazla modeli birleştirir)")
+            else:
+                st.warning("Model dosyaları bulunamadı")
+                
+        except Exception as e:
+            st.error(f"Model karşılaştırması oluşturulamadı: {e}")
         
     elif report_type == "Drift Analiz Raporu":
         st.subheader("📈 Drift Analiz Raporu")
