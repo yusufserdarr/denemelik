@@ -649,6 +649,7 @@ else:  # Manuel Giriş
     # sensor_7 (akım): 549.85-556.06 (ort: 553.37, std: 0.89)
     
     # Kullanıcı girdilerini model anlayabileceği aralığa map et
+    # OPTIMAL ÇÖZÜM: Normal aralıkta makul hassasiyet, ekstrem değerlerde smooth
     # Eğitim verisi istatistikleri:
     # sensor_4: mean=1408.93, std=9.0, range=1382.25-1441.49
     # sensor_11: mean=47.54, std=0.27, range=46.85-48.53
@@ -656,59 +657,46 @@ else:  # Manuel Giriş
     # sensor_12: mean=521.41, std=0.74, range=518.69-523.38
     # sensor_7: mean=553.37, std=0.89, range=549.85-556.06
     
-    # Sıcaklık: Normal dağılım kullan (20-30°C normal)
-    # 25°C → mean (1408.93), her ±5°C → ±0.5 std
-    if sicaklik >= 20 and sicaklik <= 30:
-        # Normal aralık: ortalama civarında tut
-        sensor_4 = 1408.93 + (sicaklik - 25.0) * 0.9  # ±5°C → ±4.5
-    elif sicaklik > 30:
-        # Yüksek sıcaklık: üst limite yaklaş ama yavaşça
-        excess = min(sicaklik - 30, 70)  # En fazla 70°C fazlalık
-        sensor_4 = 1408.93 + 4.5 + (excess * 0.4)  # Daha yavaş artış
+    # Sıcaklık: 20-30°C normal, iyi tepki; >50°C ekstrem, smooth
+    if sicaklik <= 30:
+        sensor_4 = 1390.0 + (sicaklik - 20) * 1.8  # Normal hassasiyet
+    elif sicaklik <= 50:
+        sensor_4 = 1408.0 + (sicaklik - 30) * 0.9  # Orta hassasiyet
     else:
-        # Düşük sıcaklık
-        deficit = min(25 - sicaklik, 20)
-        sensor_4 = 1408.93 - 4.5 - (deficit * 0.4)
-    sensor_4 = max(1382.25, min(1441.49, sensor_4))  # Sınırla
+        sensor_4 = 1426.0 + min((sicaklik - 50) * 0.3, 15.49)  # Smooth (ekstrem)
+    sensor_4 = max(1382.25, min(1441.49, sensor_4))
     
-    # Basınç: Normal dağılım (mean=47.54, std=0.27)
-    # 47.5 bar → mean, her ±0.5 bar → ±1 std
-    sensor_11 = 47.54 + (basinc - 47.5) * 0.54  # 0.27 std per 0.5 bar
-    sensor_11 = max(46.85, min(48.53, sensor_11))
+    # Basınç: Direkt kullan (zaten dar aralık)
+    sensor_11 = max(46.85, min(48.53, basinc))
     
-    # Titreşim: Daha smooth mapping (mean=8.44, std=0.04)
-    # 1.0 → mean, her ±1 → ±1 std (0.04)
-    if titresim >= 0 and titresim <= 2:
-        sensor_15 = 8.44 + (titresim - 1.0) * 0.04  # Normal: 8.40-8.48
-    elif titresim > 2:
-        excess = min(titresim - 2.0, 8.0)  # Max 8 fazla
-        sensor_15 = 8.44 + 0.04 + (excess * 0.0125)  # Yavaş artış
+    # Titreşim: 0-2 normal (iyi tepki), >2 smooth
+    if titresim <= 2:
+        sensor_15 = 8.32 + titresim * 0.06  # Normal hassasiyet (eski gibi)
+    elif titresim <= 10:
+        sensor_15 = 8.44 + (titresim - 2) * 0.015  # Orta hassasiyet
     else:
-        sensor_15 = 8.44 - 0.04  # Min
+        sensor_15 = 8.56 + min((titresim - 10) * 0.0005, 0.02)  # Smooth (ekstrem)
     sensor_15 = max(8.32, min(8.58, sensor_15))
     
-    # Hız: Normal dağılım (mean=521.41, std=0.74)
-    sensor_12 = 521.41 + (hiz - 521.0) * 0.74
-    sensor_12 = max(518.69, min(523.38, sensor_12))
+    # Hız: Direkt kullan
+    sensor_12 = max(518.69, min(523.38, hiz))
     
-    # Akım: Normal dağılım (mean=553.37, std=0.89)
-    sensor_7 = 553.37 + (akim - 553.0) * 0.89
-    sensor_7 = max(549.85, min(556.06, sensor_7))
+    # Akım: Direkt kullan
+    sensor_7 = max(549.85, min(556.06, akim))
     
-    # Güç: Küçük varyasyon
-    sensor_21 = 23.3 + (guc - 23.3) * 0.5
-    sensor_21 = max(22.89, min(23.62, sensor_21))
+    # Güç: Direkt kullan
+    sensor_21 = max(22.89, min(23.62, guc))
     
-    # Diğer sensörler için türetilmiş değerler (daha smooth)
+    # Diğer sensörler için türetilmiş değerler (orta hassasiyet)
     # Sıcaklıktan etkilenen sensörler
-    temp_factor = (sicaklik - 25.0) / 50.0  # Daha az hassas
-    sensor_20 = 38.9 + temp_factor * 2.0  # Nem (daha az değişim)
-    sensor_2 = 642.0 + temp_factor * 5.0  # Basınç sensörü 2
+    temp_factor = (sicaklik - 25.0) / 30.0  # Orta hassasiyet
+    sensor_20 = 38.9 + temp_factor * 3.5  # Nem
+    sensor_2 = 642.0 + temp_factor * 7.0  # Basınç sensörü 2
     
     # Titreşimden etkilenen sensörler
-    vib_factor = (titresim - 1.0) / 20.0  # Daha az hassas
-    sensor_9 = 9050.0 + vib_factor * 15.0  # Tork
-    sensor_14 = 8130.0 + vib_factor * 10.0  # Güç sensörü
+    vib_factor = (titresim - 1.0) / 15.0  # Orta hassasiyet
+    sensor_9 = 9050.0 + vib_factor * 20.0  # Tork
+    sensor_14 = 8130.0 + vib_factor * 15.0  # Güç sensörü
     
     # Geriye dönük uyumluluk için tork değişkeni
     tork = 55.0
