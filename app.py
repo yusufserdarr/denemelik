@@ -23,59 +23,106 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS stilleri
+# Minimal ve Profesyonel CSS
 st.markdown("""
 <style>
+    /* Temiz arka plan */
+    .stApp {
+        background-color: #f5f7fa;
+    }
+    
+    /* Sidebar - açık ve okunabilir */
+    [data-testid="stSidebar"] {
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+    }
+    
+    /* Sidebar yazıları siyah */
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stSelectbox label,
+    [data-testid="stSidebar"] .stRadio label,
+    [data-testid="stSidebar"] .stSlider label {
+        color: #1e293b !important;
+    }
+    
+    /* Sidebar header */
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        color: #1e293b !important;
+    }
+    
+    /* Metrik kartları - basit ve temiz */
+    .stMetric {
+        background-color: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+    }
+    
+    /* Durum kartları - düz renkler */
     .metric-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 5px solid #1f77b4;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
+    
+    /* CRITICAL - düz kırmızı */
     .status-critical {
-        background-color: #ffebee;
-        border-left-color: #f44336;
-        color: #d32f2f;
+        background-color: #dc2626;
+        border-left: 4px solid #991b1b;
+        color: white;
     }
-    .status-critical h3 {
-        color: #d32f2f;
-        margin: 0 0 0.5rem 0;
-        font-weight: bold;
+    
+    .status-critical h3, .status-critical p {
+        color: white !important;
     }
-    .status-critical p {
-        color: #d32f2f;
-        margin: 0;
-        font-weight: 500;
-    }
+    
+    /* PLANNED - düz turuncu */
     .status-planned {
-        background-color: #fff8e1;
-        border-left-color: #ff9800;
-        color: #f57c00;
+        background-color: #f59e0b;
+        border-left: 4px solid #d97706;
+        color: white;
     }
-    .status-planned h3 {
-        color: #f57c00;
-        margin: 0 0 0.5rem 0;
-        font-weight: bold;
+    
+    .status-planned h3, .status-planned p {
+        color: white !important;
     }
-    .status-planned p {
-        color: #f57c00;
-        margin: 0;
-        font-weight: 500;
-    }
+    
+    /* NORMAL - düz yeşil */
     .status-normal {
-        background-color: #e8f5e8;
-        border-left-color: #4caf50;
-        color: #2e7d32;
+        background-color: #10b981;
+        border-left: 4px solid #059669;
+        color: white;
     }
-    .status-normal h3 {
-        color: #2e7d32;
-        margin: 0 0 0.5rem 0;
-        font-weight: bold;
+    
+    .status-normal h3, .status-normal p {
+        color: white !important;
     }
-    .status-normal p {
-        color: #2e7d32;
-        margin: 0;
+    
+    /* Butonlar - basit mavi */
+    .stButton button {
+        background-color: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.6rem 1.5rem;
         font-weight: 500;
+        transition: background-color 0.2s;
+    }
+    
+    .stButton button:hover {
+        background-color: #1d4ed8;
+    }
+    
+    /* DataFrame temiz kenarlıklar */
+    .stDataFrame {
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -151,14 +198,15 @@ def load_models(model_choice="XGBoost (Varsayılan)"):
         st.info("💡 Önce modelleri eğitin: python3 model_train_fixed.py")
         st.stop()
 
-# Başlık ve açıklama
-st.title("🧠 Makine Öğrenimi ile Erken Arıza Tespiti")
+# Başlık
+st.title("🔧 Predictive Maintenance Dashboard")
+st.markdown("**NASA Turbofan Engine - Makine Öğrenimi ile Erken Arıza Tespiti**")
 
-# Sağ üstte model seçimi
-col_title, col_model = st.columns([0.7, 0.3])
-with col_title:
-    st.markdown("**Gerçek zamanlı sensör verilerinden makine kalan ömrü (RUL) tahmini**")
-with col_model:
+# Model seçimi
+col1, col2 = st.columns([0.7, 0.3])
+with col1:
+    st.markdown("Gerçek zamanlı sensör verilerinden jet motor kalan ömrü (RUL) tahmini")
+with col2:
     selected_model = st.selectbox(
         "Model Seçimi",
         options=["XGBoost (Varsayılan)", "LightGBM", "CatBoost", "LSTM", "Stacking", "Survival (Cox)", "Conformal"],
@@ -166,6 +214,7 @@ with col_model:
         key="model_selection",
         help="Tahmin için kullanılacak algoritma seçimi"
     )
+
 st.markdown("---")
 
 # Model yükle - seçilen modele göre
@@ -206,20 +255,41 @@ ensure_dirs()
 base_dir = os.path.dirname(os.path.abspath(__file__))
 stream_csv_path = os.path.join(base_dir, "logs", "stream.csv")
 
-# Sol menü
+# Sol menü - Temiz ve okunabilir
 st.sidebar.header("🔧 Ayarlar")
-st.sidebar.markdown("### Veri Kaynağı")
-data_source = st.sidebar.radio("Veri Kaynağı Seç:", ["Canlı Akış", "Dosya Yükle", "Manuel Giriş"])
+st.sidebar.markdown("---")
 
-st.sidebar.markdown("### Analiz Modülleri")
-menu_choice = st.sidebar.selectbox(
-    "Analiz Seçin:",
-    ["Ana Dashboard", "Model Drift İzleme", "Model Analizi", "Raporlar"]
+st.sidebar.markdown("### 📊 Veri Kaynağı")
+data_source = st.sidebar.radio(
+    "Veri Kaynağı Seç:",
+    ["Canlı Akış", "Dosya Yükle", "Manuel Giriş"],
+    help="Tahmin için veri kaynağını seçin"
 )
 
-st.sidebar.markdown("### Bakım Eşikleri")
-critical_th = st.sidebar.slider("Kritik Eşik (RUL <)", 5, 100, 40, help="Bu değerin altında acil bakım gerekir")
-planned_th = st.sidebar.slider("Planlı Eşik (RUL <)", 30, 150, 90, help="Bu değerin altında planlı bakım önerilir")
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📈 Analiz Modülleri")
+menu_choice = st.sidebar.selectbox(
+    "Analiz Seçin:",
+    ["Ana Dashboard", "Model Drift İzleme", "Model Analizi", "Raporlar"],
+    help="Görüntülenecek analiz modülünü seçin"
+)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ⚙️ Bakım Eşikleri")
+critical_th = st.sidebar.slider(
+    "Kritik Eşik (RUL <)",
+    min_value=5,
+    max_value=100,
+    value=40,
+    help="Bu değerin altında acil bakım gerekir"
+)
+planned_th = st.sidebar.slider(
+    "Planlı Eşik (RUL <)",
+    min_value=30,
+    max_value=150,
+    value=90,
+    help="Bu değerin altında planlı bakım önerilir"
+)
 
 # Veri yükleme / okuma
 sicaklik, titresim, tork = None, None, None
@@ -1685,8 +1755,12 @@ elif menu_choice == "Raporlar":
 st.markdown("---")
 st.markdown(
     """
-    <div style='text-align: center; color: #666; font-size: 0.8em;'>
-        Predictive Maintenance Dashboard | Makine Ogrenimi ile Erken Ariza Tespiti
+    <div style='text-align: center; color: #64748b; font-size: 0.85rem; padding: 2rem 0;'>
+        <p style='margin: 0.5rem 0;'><strong>Predictive Maintenance Dashboard</strong></p>
+        <p style='margin: 0.5rem 0;'>NASA C-MAPSS Turbofan Engine Dataset</p>
+        <p style='margin: 0.5rem 0; font-size: 0.8rem;'>
+            XGBoost • LightGBM • CatBoost • LSTM • Stacking • Survival Analysis • Conformal Prediction
+        </p>
     </div>
     """,
     unsafe_allow_html=True
