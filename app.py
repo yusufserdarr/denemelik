@@ -23,106 +23,229 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Minimal ve Profesyonel CSS
+# Modern ve Profesyonel CSS
 st.markdown("""
 <style>
-    /* Temiz arka plan */
+    /* Modern arka plan - soft gri tonu */
     .stApp {
-        background-color: #f5f7fa;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     }
     
-    /* Sidebar - açık ve okunabilir */
-    [data-testid="stSidebar"] {
+    /* Ana içerik alanı - beyaz ve okunabilir */
+    .main .block-container {
         background-color: #ffffff;
-        border-right: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
     }
     
-    /* Sidebar yazıları siyah */
+    /* Ana başlık ve metin renkleri - koyu ve okunabilir */
+    h1, h2, h3, h4, h5, h6 {
+        color: #0f172a !important;
+        font-weight: 600;
+    }
+    
+    p, div, span, label {
+        color: #1e293b !important;
+    }
+    
+    /* Sidebar - modern beyaz */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border-right: 2px solid #e2e8f0;
+    }
+    
+    /* Sidebar yazıları - koyu gri, yüksek kontrast */
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
     [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] label,
     [data-testid="stSidebar"] .stSelectbox label,
     [data-testid="stSidebar"] .stRadio label,
     [data-testid="stSidebar"] .stSlider label {
-        color: #1e293b !important;
+        color: #0f172a !important;
+        font-weight: 500;
     }
     
-    /* Sidebar header */
+    /* Sidebar header - koyu ve belirgin */
     [data-testid="stSidebar"] h1,
     [data-testid="stSidebar"] h2,
     [data-testid="stSidebar"] h3 {
-        color: #1e293b !important;
+        color: #0f172a !important;
+        font-weight: 700;
     }
     
-    /* Metrik kartları - basit ve temiz */
+    /* Metrik kartları - modern, yumuşak gölge */
     .stMetric {
-        background-color: white;
-        border-radius: 8px;
+        background-color: #ffffff;
+        border-radius: 10px;
         padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
         border: 1px solid #e2e8f0;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
     
-    /* Durum kartları - düz renkler */
+    .stMetric:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stMetric label {
+        color: #64748b !important;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .stMetric [data-testid="stMetricValue"] {
+        color: #0f172a !important;
+        font-weight: 700;
+    }
+    
+    .stMetric [data-testid="stMetricDelta"] {
+        color: #475569 !important;
+    }
+    
+    /* Durum kartları - modern, profesyonel renkler */
     .metric-card {
         padding: 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transition: transform 0.2s;
     }
     
-    /* CRITICAL - düz kırmızı */
+    .metric-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    /* CRITICAL - koyu kırmızı, profesyonel */
     .status-critical {
-        background-color: #dc2626;
-        border-left: 4px solid #991b1b;
-        color: white;
+        background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
+        border-left: 4px solid #dc2626;
+        color: #ffffff;
     }
     
     .status-critical h3, .status-critical p {
-        color: white !important;
+        color: #ffffff !important;
+        font-weight: 600;
     }
     
-    /* PLANNED - düz turuncu */
+    /* PLANNED - koyu turuncu/kahve tonu */
     .status-planned {
-        background-color: #f59e0b;
-        border-left: 4px solid #d97706;
-        color: white;
+        background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+        border-left: 4px solid #f59e0b;
+        color: #ffffff;
     }
     
     .status-planned h3, .status-planned p {
-        color: white !important;
+        color: #ffffff !important;
+        font-weight: 600;
     }
     
-    /* NORMAL - düz yeşil */
+    /* NORMAL - koyu yeşil/teal tonu */
     .status-normal {
-        background-color: #10b981;
-        border-left: 4px solid #059669;
-        color: white;
+        background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+        border-left: 4px solid #10b981;
+        color: #ffffff;
     }
     
     .status-normal h3, .status-normal p {
-        color: white !important;
+        color: #ffffff !important;
+        font-weight: 600;
     }
     
-    /* Butonlar - basit mavi */
-    .stButton button {
-        background-color: #2563eb;
-        color: white;
+    /* Butonlar - modern mavi, profesyonel */
+    .stButton > button {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: #ffffff;
         border: none;
-        border-radius: 6px;
-        padding: 0.6rem 1.5rem;
-        font-weight: 500;
-        transition: background-color 0.2s;
+        border-radius: 8px;
+        padding: 0.65rem 1.75rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
     }
     
-    .stButton button:hover {
-        background-color: #1d4ed8;
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
     }
     
-    /* DataFrame temiz kenarlıklar */
+    /* Buton - disabled durumu */
+    .stButton > button:disabled {
+        background: #cbd5e1;
+        color: #94a3b8;
+        box-shadow: none;
+        cursor: not-allowed;
+    }
+    
+    /* DataFrame - modern kenarlıklar */
     .stDataFrame {
-        border-radius: 6px;
+        border-radius: 8px;
         overflow: hidden;
         border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    
+    /* Tablo içeriği okunabilir */
+    .stDataFrame table {
+        background-color: #ffffff;
+    }
+    
+    .stDataFrame th {
+        background-color: #f8fafc;
+        color: #0f172a;
+        font-weight: 600;
+    }
+    
+    .stDataFrame td {
+        color: #1e293b;
+    }
+    
+    /* Input alanları - modern görünüm */
+    .stSelectbox label,
+    .stTextInput label,
+    .stNumberInput label,
+    .stRadio label,
+    .stSlider label {
+        color: #0f172a !important;
+        font-weight: 500;
+    }
+    
+    /* Bilgi kutuları - okunabilir */
+    .stInfo {
+        background-color: #e0f2fe;
+        border-left: 4px solid #0ea5e9;
+        color: #0c4a6e;
+    }
+    
+    .stSuccess {
+        background-color: #dcfce7;
+        border-left: 4px solid #10b981;
+        color: #065f46;
+    }
+    
+    .stWarning {
+        background-color: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        color: #92400e;
+    }
+    
+    .stError {
+        background-color: #fee2e2;
+        border-left: 4px solid #ef4444;
+        color: #991b1b;
+    }
+    
+    /* Markdown metinleri okunabilir */
+    .stMarkdown {
+        color: #1e293b;
+        line-height: 1.7;
+    }
+    
+    .stMarkdown strong {
+        color: #0f172a;
+        font-weight: 700;
     }
 </style>
 """, unsafe_allow_html=True)
