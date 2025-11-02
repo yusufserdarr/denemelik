@@ -175,7 +175,7 @@ def _format_excel_report(excel_path: str):
             
             # Başlık satırını biçimlendir
             header_font = Font(bold=True, color="FFFFFF")
-            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            header_fill = PatternFill(start_color="475569", end_color="475569", fill_type="solid")  # Koyu gri - modern ve profesyonel
             
             for cell in ws1[1]:
                 cell.font = header_font

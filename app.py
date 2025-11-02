@@ -52,7 +52,7 @@ st.markdown("""
     /* Sidebar - modern beyaz */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-        border-right: 2px solid #e2e8f0;
+        border-right: 2px solid #e2e8f0;<
     }
     
     /* Sidebar yazıları - koyu gri, yüksek kontrast */
@@ -152,9 +152,9 @@ st.markdown("""
         font-weight: 600;
     }
     
-    /* Butonlar - modern mavi, profesyonel */
+    /* Butonlar - belirgin turuncu-kahve tonu, görünür ve profesyonel */
     .stButton > button {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
         color: #ffffff;
         border: none;
         border-radius: 8px;
@@ -162,13 +162,13 @@ st.markdown("""
         font-weight: 600;
         font-size: 0.95rem;
         transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        box-shadow: 0 2px 8px rgba(180, 83, 9, 0.35);
     }
     
     .stButton > button:hover {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        background: linear-gradient(135deg, #92400e 0%, #78350f 100%);
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        box-shadow: 0 4px 12px rgba(180, 83, 9, 0.5);
     }
     
     /* Buton - disabled durumu */
@@ -212,11 +212,11 @@ st.markdown("""
         font-weight: 500;
     }
     
-    /* Bilgi kutuları - okunabilir */
+    /* Bilgi kutuları - okunabilir, diğer renklerle uyumlu koyu gri tonu */
     .stInfo {
-        background-color: #e0f2fe;
-        border-left: 4px solid #0ea5e9;
-        color: #0c4a6e;
+        background-color: #f1f5f9;
+        border-left: 4px solid #475569;
+        color: #0f172a;
     }
     
     .stSuccess {
