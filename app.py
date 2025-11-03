@@ -317,8 +317,8 @@ def load_models(model_choice="XGBoost (Varsayılan)"):
             
         return model, scaler, features
     except Exception as e:
-        st.error(f"❌ Model yükleme hatası ({model_choice}): {e}")
-        st.info("💡 Önce modelleri eğitin: python3 model_train_fixed.py")
+        st.error(f" Model yükleme hatası ({model_choice}): {e}")
+        st.info(" Önce modelleri eğitin: python3 model_train_fixed.py")
         st.stop()
 
 # Başlık
@@ -390,7 +390,7 @@ data_source = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📈 Analiz Modülleri")
+st.sidebar.markdown("###  Analiz Modülleri")
 menu_choice = st.sidebar.selectbox(
     "Analiz Seçin:",
     ["Ana Dashboard", "Model Drift İzleme", "Model Analizi", "Raporlar"],
@@ -398,7 +398,7 @@ menu_choice = st.sidebar.selectbox(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### ⚙️ Bakım Eşikleri")
+st.sidebar.markdown("###  Bakım Eşikleri")
 critical_th = st.sidebar.slider(
     "Kritik Eşik (RUL <)",
     min_value=5,
@@ -429,13 +429,13 @@ if data_source == "Canlı Akış":
                 # Son veri gösterimi
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("📊 Toplam Kayıt", len(df_stream))
+                    st.metric(" Toplam Kayıt", len(df_stream))
                 with col2:
-                    st.metric("🕐 Son Güncelleme", latest["timestamp"].iloc[0])
+                    st.metric(" Son Güncelleme", latest["timestamp"].iloc[0])
                 with col3:
-                    st.metric("🌡️ Sıcaklık", f"{latest['sicaklik'].iloc[0]:.2f}°C")
+                    st.metric(" Sıcaklık", f"{latest['sicaklik'].iloc[0]:.2f}°C")
                 with col4:
-                    st.metric("📈 Titreşim", f"{latest['titresim'].iloc[0]:.3f}")
+                    st.metric(" Titreşim", f"{latest['titresim'].iloc[0]:.3f}")
                 
                 st.dataframe(latest, width='stretch')
                 
@@ -623,13 +623,13 @@ if data_source == "Canlı Akış":
                                 survival_curve = pd.DataFrame([survival_values], columns=time_points)
                             
                             # Metrikler
-                            st.metric("⚠️ Hazard Ratio", f"{float(hazard_ratio.iloc[0]):.3f}")
+                            st.metric(" Hazard Ratio", f"{float(hazard_ratio.iloc[0]):.3f}")
                             
                             idx_50 = min(12, survival_curve.shape[1]-1)
                             idx_100 = min(24, survival_curve.shape[1]-1)
                             
-                            st.metric("📈 50 Döngüde Hayatta Kalma", f"{float(survival_curve.iloc[0, idx_50]):.3f}")
-                            st.metric("📈 100 Döngüde Hayatta Kalma", f"{float(survival_curve.iloc[0, idx_100]):.3f}")
+                            st.metric(" 50 Döngüde Hayatta Kalma", f"{float(survival_curve.iloc[0, idx_50]):.3f}")
+                            st.metric(" 100 Döngüde Hayatta Kalma", f"{float(survival_curve.iloc[0, idx_100]):.3f}")
                             
                         except Exception as e:
                             # Fallback: basit exponential decay
@@ -638,9 +638,9 @@ if data_source == "Canlı Akış":
                             survival_values = base_survival * np.exp(-decay_rate * time_points)
                             survival_curve = pd.DataFrame([survival_values], columns=time_points)
                             
-                            st.metric("⚠️ Hazard Ratio", f"{float(hazard_ratio.iloc[0]):.3f}")
-                            st.metric("📈 50 Döngüde Hayatta Kalma", f"{float(survival_values[12]):.3f}")
-                            st.metric("📈 100 Döngüde Hayatta Kalma", f"{float(survival_values[24]):.3f}")
+                            st.metric(" Hazard Ratio", f"{float(hazard_ratio.iloc[0]):.3f}")
+                            st.metric(" 50 Döngüde Hayatta Kalma", f"{float(survival_values[12]):.3f}")
+                            st.metric(" 100 Döngüde Hayatta Kalma", f"{float(survival_values[24]):.3f}")
                             st.info("Survival eğrisi model tabanlı hesaplandı")
                         
                         # Survival eğrisi grafiği
@@ -706,10 +706,10 @@ if data_source == "Canlı Akış":
                         interval_width = upper_bound - lower_bound
                         
                         # Metrikler
-                        st.metric("🎯 Nokta Tahmini", f"{point_pred:.2f} döngü")
-                        st.metric("📊 Alt Sınır", f"{lower_bound:.2f} döngü")
-                        st.metric("📊 Üst Sınır", f"{upper_bound:.2f} döngü")
-                        st.metric("📏 Aralık Genişliği", f"{interval_width:.2f} döngü")
+                        st.metric(" Nokta Tahmini", f"{point_pred:.2f} döngü")
+                        st.metric(" Alt Sınır", f"{lower_bound:.2f} döngü")
+                        st.metric(" Üst Sınır", f"{upper_bound:.2f} döngü")
+                        st.metric(" Aralık Genişliği", f"{interval_width:.2f} döngü")
                         
                         # Güven aralığı grafiği
                         import matplotlib.pyplot as plt  # type: ignore
@@ -761,7 +761,7 @@ elif data_source == "Dosya Yükle":
     if uploaded is not None:
         try:
             df_stream = pd.read_csv(uploaded)
-            st.success(f"✅ Dosya yüklendi: {len(df_stream)} satır")
+            st.success(f" Dosya yüklendi: {len(df_stream)} satır")
             
             # Son satırı al
             latest = df_stream.tail(1)
@@ -790,25 +790,25 @@ elif data_source == "Dosya Yükle":
             st.error(f"Dosya okuma hatası: {e}")
             st.stop()
     else:
-        st.info("📤 Bir CSV dosyası yükleyin")
+        st.info(" Bir CSV dosyası yükleyin")
         st.stop()
 
 else:  # Manuel Giriş
-    st.subheader("✏️ Manuel Veri Girişi")
+    st.subheader(" Manuel Veri Girişi")
     st.markdown("**Sensör değerlerini girin:**")
-    st.warning("⚠️ Dikkat: Aşırı/anormal değerler düşük RUL tahminine yol açar!")
+    st.warning(" Dikkat: Aşırı/anormal değerler düşük RUL tahminine yol açar!")
     
     # Feature importance'a göre en önemli 6 sensör
     col1, col2, col3 = st.columns(3)
     
     with col1:
         # Basınç: Normal aralık 46.85-48.53
-        basinc = st.number_input("📊 Basınç (bar)", 
+        basinc = st.number_input(" Basınç (bar)", 
                                 min_value=30.0, max_value=70.0, value=47.5, step=0.5,
                                 help="Normal: 47-48 bar. Aşırı yüksek/düşük değerler RUL'u düşürür.")
         
         # Sıcaklık göstergesi: Normal 20-30°C
-        sicaklik = st.number_input("🌡️ Sıcaklık (°C)", 
+        sicaklik = st.number_input(" Sıcaklık (°C)", 
                                    min_value=0.0, max_value=150.0, value=25.0, step=1.0,
                                    help="Normal: 20-30°C. Yüksek sıcaklık (>50°C) RUL'u düşürür.")
     
@@ -825,12 +825,12 @@ else:  # Manuel Giriş
     
     with col3:
         # Titreşim göstergesi: Normal 0-2
-        titresim = st.number_input("📳 Titreşim Seviyesi", 
+        titresim = st.number_input(" Titreşim Seviyesi", 
                                    min_value=0.0, max_value=50.0, value=1.0, step=0.5,
                                    help="Normal: 0-2. Yüksek titreşim (>10) RUL'u ciddi şekilde düşürür!")
         
         # Güç: Normal 22.9-23.6
-        guc = st.number_input("⚙️ Güç (W)", 
+        guc = st.number_input(" Güç (W)", 
                              min_value=10.0, max_value=40.0, value=23.3, step=0.1,
                              help="Normal: 23-23.5 W")
     
@@ -895,7 +895,7 @@ else:  # Manuel Giriş
     tork = 55.0
     
     # Debug bilgisi (opsiyonel)
-    with st.expander("🔍 Normalize Edilmiş Sensör Değerleri"):
+    with st.expander(" Normalize Edilmiş Sensör Değerleri"):
         st.write(f"**Model girdileri (eğitim verisi aralığına normalize edilmiş):**")
         st.write(f"- sensor_4 (sıcaklık): {sensor_4:.2f} [Normal: 1390-1410]")
         st.write(f"- sensor_11 (basınç): {sensor_11:.2f} [Normal: 47-48]")
@@ -987,11 +987,11 @@ if sicaklik is not None and titresim is not None and tork is not None:
                 rul = float(rul_pred)
             else:
                 # Fallback: güvenli bir değer
-                st.warning("⚠️ Model tahmini geçersiz, alternatif hesaplama kullanılıyor")
+                st.warning(" Model tahmini geçersiz, alternatif hesaplama kullanılıyor")
                 rul = max(10.0, 150.0 - abs(sensor_4 - 1425.0)/10 - abs(sensor_15 - 8.4)*2)
             
         except Exception as e:
-            st.error(f"❌ Model tahmini başarısız: {e}")
+            st.error(f" Model tahmini başarısız: {e}")
             # Basit tahmin (fallback) - her zaman pozitif olacak şekilde
             rul = max(10.0, 150.0 - abs(sensor_4 - 1425.0)/10 - abs(sensor_15 - 8.4)*2)
     else:
@@ -1072,7 +1072,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
                 # Fallback
                 rul = max(10.0, 200.0 - abs(sicaklik - 25.0) - abs(titresim - 500.0)/20 - abs(tork - 55.0)/2)
         except Exception as e:
-            st.warning(f"⚠️ Model tahmini başarısız: {e}")
+            st.warning(f" Model tahmini başarısız: {e}")
             # Basit tahmin (fallback) - her zaman pozitif
             rul = max(10.0, 200.0 - abs(sicaklik - 25.0) - abs(titresim - 500.0)/20 - abs(tork - 55.0)/2)
     
@@ -1128,13 +1128,13 @@ if sicaklik is not None and titresim is not None and tork is not None:
             try:
                 with st.spinner("Rapor oluşturuluyor..."):
                     path = daily_report_to_excel()
-                st.success(f"✅ Rapor oluşturuldu: `{path}`")
+                st.success(f" Rapor oluşturuldu: `{path}`")
                 st.balloons()
             except Exception as e:
-                st.error(f"❌ Rapor hatası: {e}")
+                st.error(f" Rapor hatası: {e}")
     
     with col2:
-        if st.button("📝 Tahmini Logla", width='stretch'):
+        if st.button(" Tahmini Logla", width='stretch'):
             try:
                 from reporting import append_prediction_log
                 log_data = {
@@ -1146,9 +1146,9 @@ if sicaklik is not None and titresim is not None and tork is not None:
                     "status": result['status']
                 }
                 append_prediction_log(log_data)
-                st.success("✅ Tahmin loglandı!")
+                st.success(" Tahmin loglandı!")
             except Exception as e:
-                st.error(f"❌ Loglama hatası: {e}")
+                st.error(f" Loglama hatası: {e}")
     
     # Açıklamalar (Explainability)
     st.markdown("---")
@@ -1303,26 +1303,26 @@ if sicaklik is not None and titresim is not None and tork is not None:
                     
                     html_file, lime_exp = explain_instance(model_for_explain, scaler, sample_df, features, "reports/lime_explanation.html")
                     
-                st.success("✅ LIME açıklaması oluşturuldu!")
+                st.success(" LIME açıklaması oluşturuldu!")
                 
                 # Özellik önem skorlarını tablo olarak göster
-                st.markdown("### 🔍 LIME Açıklaması - Özellik Etkileri")
+                st.markdown("###  LIME Açıklaması - Özellik Etkileri")
                 
                 # LIME explanation'dan özellik skorlarını al
                 lime_list = lime_exp.as_list()
                 
                 # Sensör isim mapping'i
                 sensor_names = {
-                    'sensor_measurement_11': '📊 Basınç',
-                    'sensor_measurement_4': '🌡️ Sıcaklık',
+                    'sensor_measurement_11': ' Basınç',
+                    'sensor_measurement_4': ' Sıcaklık',
                     'sensor_measurement_12': '⚡ Hız',
                     'sensor_measurement_7': '⚡ Akım',
-                    'sensor_measurement_15': '📳 Titreşim',
-                    'sensor_measurement_21': '⚙️ Güç',
-                    'sensor_measurement_20': '💧 Nem',
-                    'sensor_measurement_9': '🔧 Tork',
-                    'sensor_measurement_2': '🌡️ Sensör 2',
-                    'sensor_measurement_14': '⚙️ Sensör 14'
+                    'sensor_measurement_15': ' Titreşim',
+                    'sensor_measurement_21': ' Güç',
+                    'sensor_measurement_20': ' Nem',
+                    'sensor_measurement_9': ' Tork',
+                    'sensor_measurement_2': ' Sensör 2',
+                    'sensor_measurement_14': ' Sensör 14'
                 }
                 
                 # DataFrame oluştur
@@ -1364,7 +1364,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
                     )
                 
             except Exception as e:
-                st.error(f"❌ LIME hatası: {e}")
+                st.error(f" LIME hatası: {e}")
                 import traceback
                 st.code(traceback.format_exc())
     
@@ -1395,14 +1395,14 @@ if sicaklik is not None and titresim is not None and tork is not None:
                     
                     local_path = shap_local_png(model_for_explain, X_scaled)
                     
-                st.success("✅ SHAP lokal grafiği oluşturuldu!")
+                st.success(" SHAP lokal grafiği oluşturuldu!")
                 
                 # Görseli göster
                 if os.path.exists(local_path):
                     st.image(local_path, caption="SHAP Lokal Analizi", width='stretch')
                     
             except Exception as e:
-                st.error(f"❌ SHAP lokal hatası: {e}")
+                st.error(f" SHAP lokal hatası: {e}")
     
     with col3:
         if st.button("📈 SHAP Özet Grafiği", width='stretch', disabled=not explainability_supported):
@@ -1420,14 +1420,14 @@ if sicaklik is not None and titresim is not None and tork is not None:
                     
                     summary_path = shap_summary_png(model_for_explain, X_scaled)
                     
-                st.success("✅ SHAP özet grafiği oluşturuldu!")
+                st.success(" SHAP özet grafiği oluşturuldu!")
                 
                 # Görseli göster
                 if os.path.exists(summary_path):
                     st.image(summary_path, caption="SHAP Özet Analizi", width='stretch')
                     
             except Exception as e:
-                st.error(f"❌ SHAP özet hatası: {e}")
+                st.error(f" SHAP özet hatası: {e}")
 
 # Menü seçimine göre içerik göster
 if menu_choice == "Model Drift İzleme":
@@ -1472,19 +1472,19 @@ if menu_choice == "Model Drift İzleme":
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    psi_status = "🔴 Drift" if drift_results["psi_drift"]["drift_detected"] else "🟢 Normal"
+                    psi_status = " Drift" if drift_results["psi_drift"]["drift_detected"] else "🟢 Normal"
                     st.metric("PSI Durumu", psi_status)
                     if drift_results["psi_drift"]["drift_detected"]:
                         st.write(f"Max PSI: {drift_results['psi_drift']['max_psi']:.3f}")
                 
                 with col2:
-                    statistical_status = "🔴 Drift" if drift_results["statistical_drift"]["drift_detected"] else "🟢 Normal"
+                    statistical_status = " Drift" if drift_results["statistical_drift"]["drift_detected"] else "🟢 Normal"
                     st.metric("İstatistiksel Durum", statistical_status)
                     if drift_results["statistical_drift"]["drift_detected"]:
                         st.write(f"Drift Özellikleri: {len(drift_results['statistical_drift']['drift_features'])}")
                 
                 with col3:
-                    overall_status = "🔴 Drift Tespit Edildi" if drift_results["overall_drift"] else "🟢 Normal"
+                    overall_status = " Drift Tespit Edildi" if drift_results["overall_drift"] else "🟢 Normal"
                     st.metric("Genel Durum", overall_status)
                     
                     if drift_results["retrain_recommended"]:
@@ -1492,7 +1492,7 @@ if menu_choice == "Model Drift İzleme":
                 
                 # Drift detayları
                 if drift_results["overall_drift"]:
-                    st.subheader("🚨 Drift Detayları")
+                    st.subheader(" Drift Detayları")
                     
                     if drift_results["psi_drift"]["drift_detected"]:
                         st.write("**PSI Drift:**")
@@ -1517,12 +1517,12 @@ if menu_choice == "Model Drift İzleme":
                     with col1:
                         if st.button("Yeniden Eğitimi Tetikle", type="primary"):
                             drift_detector.trigger_retrain()
-                            st.success("✅ Yeniden eğitim tetiklendi!")
+                            st.success(" Yeniden eğitim tetiklendi!")
                             
                     with col2:
                         if st.button("Drift Geçmişini Temizle"):
                             drift_detector.drift_alerts = []
-                            st.success("✅ Drift geçmişi temizlendi!")
+                            st.success(" Drift geçmişi temizlendi!")
             
             else:
                 st.warning("Henüz veri akışı başlamadı.")
@@ -1612,9 +1612,9 @@ if menu_choice == "Model Drift İzleme":
                 st.bar_chart(drift_types)
                 st.caption(f"Toplam {len(drift_alerts)} uyarı analiz edildi")
             else:
-                st.info("📊 Henüz drift uyarısı yok. Sistem çalıştıkça drift verileri birikecek.")
+                st.info(" Henüz drift uyarısı yok. Sistem çalıştıkça drift verileri birikecek.")
         else:
-            st.info("📊 Drift alert dosyası bulunamadı. Sistem ilk kez çalıştırıldığında oluşacak.")
+            st.info(" Drift alert dosyası bulunamadı. Sistem ilk kez çalıştırıldığında oluşacak.")
     except Exception as e:
         st.warning(f"Drift istatistikleri oluşturulamadı: {e}")
         st.info("Drift detection sistemi aktif hale geldiğinde veriler görünecek")
@@ -1670,7 +1670,7 @@ elif menu_choice == "Model Analizi":
             with col2:
                 st.metric("Özellik Sayısı", len(features))
             with col3:
-                st.metric("Durum", "Eğitimli ✅")
+                st.metric("Durum", "Eğitimli ")
             with col4:
                 st.info("Meta veri yok")
                 
@@ -1719,10 +1719,10 @@ elif menu_choice == "Model Analizi":
     # Diğer modeller için placeholder (meta dosyası yoksa)
     if len(model_comparison) == 0:
         model_comparison = [
-            {"Model": "XGBoost", "MAE": "Eğitilmiş ✅", "RMSE": "-", "R²": "-", "Taban Modeller": "Tekil"},
-            {"Model": "LightGBM", "MAE": "Eğitilmiş ✅", "RMSE": "-", "R²": "-", "Taban Modeller": "Tekil"},
-            {"Model": "CatBoost", "MAE": "Eğitilmiş ✅", "RMSE": "-", "R²": "-", "Taban Modeller": "Tekil"},
-            {"Model": "LSTM", "MAE": "Eğitilmiş ✅", "RMSE": "-", "R²": "-", "Taban Modeller": "Derin Öğrenme"},
+            {"Model": "XGBoost", "MAE": "Eğitilmiş ", "RMSE": "-", "R²": "-", "Taban Modeller": "Tekil"},
+            {"Model": "LightGBM", "MAE": "Eğitilmiş ", "RMSE": "-", "R²": "-", "Taban Modeller": "Tekil"},
+            {"Model": "CatBoost", "MAE": "Eğitilmiş ", "RMSE": "-", "R²": "-", "Taban Modeller": "Tekil"},
+            {"Model": "LSTM", "MAE": "Eğitilmiş ", "RMSE": "-", "R²": "-", "Taban Modeller": "Derin Öğrenme"},
         ]
     
     df_models = pd.DataFrame(model_comparison)
