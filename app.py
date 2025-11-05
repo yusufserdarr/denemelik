@@ -327,8 +327,6 @@ st.markdown("**NASA Turbofan Engine - Makine Öğrenimi ile Erken Arıza Tespiti
 
 # Model seçimi
 col1, col2 = st.columns([0.7, 0.3])
-with col1:
-    st.markdown("Gerçek zamanlı sensör verilerinden jet motor kalan ömrü (RUL) tahmini")
 with col2:
     selected_model = st.selectbox(
         "Model Seçimi",
@@ -1124,7 +1122,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("📈 Günlük Excel Raporu Oluştur", width='stretch'):
+        if st.button(" Günlük Excel Raporu Oluştur", width='stretch'):
             try:
                 with st.spinner("Rapor oluşturuluyor..."):
                     path = daily_report_to_excel()
@@ -1152,7 +1150,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
     
     # Açıklamalar (Explainability)
     st.markdown("---")
-    st.subheader("🧩 Model Açıklamaları (Explainability)")
+    st.subheader(" Model Açıklamaları (Explainability)")
     
     # Özel modeller için wrapper oluştur
     class ModelWrapper:
@@ -1283,7 +1281,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("🔍 LIME Açıklaması", width='stretch', disabled=not explainability_supported):
+        if st.button(" LIME Açıklaması", width='stretch', disabled=not explainability_supported):
             try:
                 with st.spinner("LIME açıklaması oluşturuluyor..."):
                     # Örnek veri oluştur - sensör mapping'ini kullan
@@ -1369,7 +1367,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
                 st.code(traceback.format_exc())
     
     with col2:
-        if st.button("📊 SHAP Lokal Grafiği", width='stretch', disabled=not explainability_supported):
+        if st.button(" SHAP Lokal Grafiği", width='stretch', disabled=not explainability_supported):
             try:
                 with st.spinner("SHAP lokal analizi yapılıyor..."):
                     # Örnek veri oluştur - sensör mapping'ini kullan
@@ -1405,7 +1403,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
                 st.error(f" SHAP lokal hatası: {e}")
     
     with col3:
-        if st.button("📈 SHAP Özet Grafiği", width='stretch', disabled=not explainability_supported):
+        if st.button(" SHAP Özet Grafiği", width='stretch', disabled=not explainability_supported):
             try:
                 with st.spinner("SHAP özet analizi yapılıyor..."):
                     # Örnek veri yükle
@@ -1431,7 +1429,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
 
 # Menü seçimine göre içerik göster
 if menu_choice == "Model Drift İzleme":
-    st.header("📊 Model Drift İzleme")
+    st.header(" Model Drift İzleme")
     st.info("Gerçek zamanlı model drift tespiti ve otomatik yeniden eğitim")
     
     # Drift detector'ı yükle
@@ -1557,7 +1555,7 @@ if menu_choice == "Model Drift İzleme":
                 st.json(alert["details"])
     
     # Drift istatistikleri
-    st.subheader("📊 Drift İstatistikleri")
+    st.subheader(" Drift İstatistikleri")
     
     # Gerçek drift verilerinden trend oluştur
     try:
@@ -1620,7 +1618,7 @@ if menu_choice == "Model Drift İzleme":
         st.info("Drift detection sistemi aktif hale geldiğinde veriler görünecek")
 
 elif menu_choice == "Model Analizi":
-    st.header("🔍 Model Analizi")
+    st.header(" Model Analizi")
     
     # Model performans metrikleri
     st.subheader("Model Performans Metrikleri")
