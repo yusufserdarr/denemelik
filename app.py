@@ -152,9 +152,9 @@ st.markdown("""
         font-weight: 600;
     }
     
-    /* Butonlar - modern koyu gri/charcoal, profesyonel ve nötr */
+    /* Butonlar - açık mavi/teal, okunabilir ve modern */
     .stButton > button {
-        background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+        background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
         color: #ffffff;
         border: none;
         border-radius: 8px;
@@ -162,13 +162,13 @@ st.markdown("""
         font-weight: 600;
         font-size: 0.95rem;
         transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(30, 41, 59, 0.3);
+        box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
     }
     
     .stButton > button:hover {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(30, 41, 59, 0.4);
+        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
     }
     
     /* Buton - disabled durumu */
@@ -248,20 +248,20 @@ st.markdown("""
         font-weight: 700;
     }
     
-    /* Raporlama ve Model Açıklama bölümleri - koyu gri tonu ile uyumlu */
+    /* Raporlama ve Model Açıklama bölümleri - açık mavi tonu ile uyumlu */
     .reporting-section h2,
     .reporting-section h3,
     .explainability-section h2,
     .explainability-section h3 {
-        color: #1e293b !important;
+        color: #0284c7 !important;
         font-weight: 700;
     }
     
     /* Raporlama ve açıklama bölümlerindeki başlıklar için alt çizgi */
     .reporting-section [data-testid="stHeader"],
     .explainability-section [data-testid="stHeader"] {
-        color: #1e293b !important;
-        border-bottom: 2px solid #475569;
+        color: #0284c7 !important;
+        border-bottom: 2px solid #0ea5e9;
         padding-bottom: 0.5rem;
         margin-bottom: 1rem;
     }
