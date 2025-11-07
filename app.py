@@ -247,6 +247,61 @@ st.markdown("""
         color: #0f172a;
         font-weight: 700;
     }
+    
+    /* Raporlama bölümü - turuncu-kahve tonu ile uyumlu */
+    .reporting-section h2,
+    .reporting-section h3 {
+        color: #92400e !important;
+        font-weight: 700;
+        border-bottom: 2px solid #f59e0b;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Model Açıklamaları bölümü - turuncu-kahve tonu ile uyumlu */
+    .explainability-section h2,
+    .explainability-section h3 {
+        color: #92400e !important;
+        font-weight: 700;
+        border-bottom: 2px solid #f59e0b;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Başlıklar için genel stil - turuncu-kahve tonu */
+    h2[data-testid="stHeader"] {
+        color: #92400e !important;
+        border-bottom: 2px solid #f59e0b;
+        padding-bottom: 0.5rem;
+    }
+    
+    h3[data-testid="stHeader"] {
+        color: #92400e !important;
+    }
+    
+    /* Raporlama ve açıklama bölümlerindeki metinler */
+    .reporting-section .stMarkdown,
+    .explainability-section .stMarkdown {
+        color: #1e293b;
+    }
+    
+    /* Başarı mesajları - yeşil tonu koru ama daha yumuşak */
+    .stSuccess {
+        background-color: #dcfce7;
+        border-left: 4px solid #10b981;
+        color: #065f46;
+        border-radius: 6px;
+        padding: 1rem;
+    }
+    
+    /* Hata mesajları - kırmızı tonu koru */
+    .stError {
+        background-color: #fee2e2;
+        border-left: 4px solid #ef4444;
+        color: #991b1b;
+        border-radius: 6px;
+        padding: 1rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1117,6 +1172,7 @@ if sicaklik is not None and titresim is not None and tork is not None:
     
     # Raporlama bölümü
     st.markdown("---")
+    st.markdown('<div class="reporting-section">', unsafe_allow_html=True)
     st.subheader("📊 Raporlama")
     
     col1, col2 = st.columns(2)
@@ -1148,8 +1204,11 @@ if sicaklik is not None and titresim is not None and tork is not None:
             except Exception as e:
                 st.error(f" Loglama hatası: {e}")
     
+    st.markdown('</div>', unsafe_allow_html=True)
+    
     # Açıklamalar (Explainability)
     st.markdown("---")
+    st.markdown('<div class="explainability-section">', unsafe_allow_html=True)
     st.subheader(" Model Açıklamaları (Explainability)")
     
     # Özel modeller için wrapper oluştur
@@ -1426,6 +1485,8 @@ if sicaklik is not None and titresim is not None and tork is not None:
                     
             except Exception as e:
                 st.error(f" SHAP özet hatası: {e}")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # Menü seçimine göre içerik göster
 if menu_choice == "Model Drift İzleme":
