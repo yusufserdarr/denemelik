@@ -152,9 +152,9 @@ st.markdown("""
         font-weight: 600;
     }
     
-    /* Butonlar - belirgin turuncu-kahve tonu, görünür ve profesyonel */
+    /* Butonlar - modern indigo/slate tonu, profesyonel ve görünür */
     .stButton > button {
-        background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+        background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
         color: #ffffff;
         border: none;
         border-radius: 8px;
@@ -162,13 +162,13 @@ st.markdown("""
         font-weight: 600;
         font-size: 0.95rem;
         transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(180, 83, 9, 0.35);
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
     }
     
     .stButton > button:hover {
-        background: linear-gradient(135deg, #92400e 0%, #78350f 100%);
+        background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(180, 83, 9, 0.5);
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
     }
     
     /* Buton - disabled durumu */
@@ -248,35 +248,22 @@ st.markdown("""
         font-weight: 700;
     }
     
-    /* Raporlama bölümü - turuncu-kahve tonu ile uyumlu */
+    /* Raporlama ve Model Açıklama bölümleri - modern indigo tonu ile uyumlu */
     .reporting-section h2,
-    .reporting-section h3 {
-        color: #92400e !important;
-        font-weight: 700;
-        border-bottom: 2px solid #f59e0b;
-        padding-bottom: 0.5rem;
-        margin-bottom: 1rem;
-    }
-    
-    /* Model Açıklamaları bölümü - turuncu-kahve tonu ile uyumlu */
+    .reporting-section h3,
     .explainability-section h2,
     .explainability-section h3 {
-        color: #92400e !important;
+        color: #4338ca !important;
         font-weight: 700;
-        border-bottom: 2px solid #f59e0b;
+    }
+    
+    /* Raporlama ve açıklama bölümlerindeki başlıklar için alt çizgi */
+    .reporting-section [data-testid="stHeader"],
+    .explainability-section [data-testid="stHeader"] {
+        color: #4338ca !important;
+        border-bottom: 2px solid #6366f1;
         padding-bottom: 0.5rem;
         margin-bottom: 1rem;
-    }
-    
-    /* Başlıklar için genel stil - turuncu-kahve tonu */
-    h2[data-testid="stHeader"] {
-        color: #92400e !important;
-        border-bottom: 2px solid #f59e0b;
-        padding-bottom: 0.5rem;
-    }
-    
-    h3[data-testid="stHeader"] {
-        color: #92400e !important;
     }
     
     /* Raporlama ve açıklama bölümlerindeki metinler */
